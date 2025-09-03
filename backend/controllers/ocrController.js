@@ -1,131 +1,2128 @@
-const vision = require('@google-cloud/vision');
-const fs = require('fs');
-const OpenAI = require('openai');
+// // // controllers/ocrController.js
+// // const vision = require("@google-cloud/vision");
+// // const fs = require("fs");
+// // const path = require("path");
+// // const { pairCards, mergeCards } = require("../services/cardPairingService");
+// // const { mergeParsedCards } = require("../services/cardMergeService");
+// // const OpenAI = require("openai");
+// // const { v4: uuidv4 } = require("uuid");
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+// // const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+// // const visionClient = new vision.ImageAnnotatorClient({
+// //   credentials: JSON.parse(process.env.GOOGLE_CLOUD_CREDENTIALS),
+// // });
 
-// Init Vision client
-let client;
-if (process.env.GOOGLE_CLOUD_CREDENTIALS) {
-  const credentials = JSON.parse(process.env.GOOGLE_CLOUD_CREDENTIALS);
-  client = new vision.ImageAnnotatorClient({
-    credentials,
-    projectId: credentials.project_id,
+// // // ---------- Constants ----------
+// // const GENERIC_DOMAINS = ["gmail.com", "yahoo.com", "hotmail.com", "outlook.com", "rediff.com"];
+// // const GENERIC_COMPANY_DOMAINS = [...GENERIC_DOMAINS, "google.com", "microsoft.com", "apple.com"];
+// // const BLOCKED_COMPANIES = ["Google", "Microsoft", "Apple", "Yahoo", "Gmail"];
+// // const JUNK_WORDS = ["our products", "since", "group", "company", "manding", "trading"];
+
+// // // ---------- Helpers ----------
+// // function safeSend(ws, obj) {
+// //   if (!ws) return;
+// //   try {
+// //     ws.send(JSON.stringify(obj));
+// //   } catch (err) {
+// //     console.error("⚠️ WS send failed:", err.message);
+// //   }
+// // }
+
+// // function ensureArray(value) {
+// //   if (!value) return [];
+// //   return Array.isArray(value) ? value : [value];
+// // }
+
+// // function extractEmails(text) {
+// //   return [...new Set(text.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-z]{2,}/g) || [])];
+// // }
+
+// // function extractPhones(text) {
+// //   return [...new Set(text.match(/\+?\d[\d\s\-()]{7,}\d/g) || [])];
+// // }
+
+// // function expandPhoneVariants(phones) {
+// //   phones = ensureArray(phones);
+// //   const expanded = [];
+// //   phones.forEach((p) => {
+// //     if (typeof p !== "string") return;
+// //     if (p.includes("/")) {
+// //       const baseMatch = p.match(/\d+/);
+// //       if (baseMatch) {
+// //         const base = baseMatch[0].slice(0, -2);
+// //         const suffixes = p.split("/").map((s) => s.replace(/\D/g, "")).filter(Boolean);
+// //         suffixes.forEach((s) => expanded.push(base + s));
+// //       }
+// //     } else {
+// //       const matches = p.match(/\+?\d{8,15}/g);
+// //       if (matches) matches.forEach((m) => expanded.push(m));
+// //     }
+// //   });
+// //   return [...new Set(expanded.filter(Boolean))];
+// // }
+
+// // function normalizeWebsite(url) {
+// //   let clean = url.trim().toLowerCase();
+// //   clean = clean.replace(/^(https?:\/\/)+/i, "");
+// //   const noWWW = clean.replace(/^www\./, "");
+// //   return "https://" + noWWW;
+// // }
+
+// // function extractWebsites(text) {
+// //   const matches = text.match(/((https?:\/\/)?(www\.)?[a-zA-Z0-9-]+\.[a-z]{2,})/gi) || [];
+// //   return [...new Set(matches.filter(
+// //     (w) => !GENERIC_DOMAINS.some((g) => w.toLowerCase().includes(g.toLowerCase()))
+// //   ).map(normalizeWebsite))];
+// // }
+
+// // function extractNameFromText(text) {
+// //   const match = text.match(/(?:Director|Founder|Manager|CEO|CTO|Co[- ]Founder|Partner|Proprietor)[:\- ]+([A-Za-z .]+)/i);
+// //   if (match) return match[1].trim();
+
+// //   const lines = text.split("\n").map((l) => l.trim()).filter(Boolean);
+// //   for (let line of lines) {
+// //     // More flexible: supports initials & single names
+// //     if (/^[A-Z][a-zA-Z.]+(\s+[A-Z][a-zA-Z.]+){0,3}$/.test(line)) return line;
+// //   }
+// //   return "";
+// // }
+
+// // function deriveCompanyFromDomain(domain) {
+// //   if (!domain) return "";
+// //   const clean = domain.replace(/^www\./, "").toLowerCase();
+// //   if (GENERIC_COMPANY_DOMAINS.includes(clean)) return "";
+// //   const name = clean.split(".")[0];
+// //   return name.charAt(0).toUpperCase() + name.slice(1);
+// // }
+
+// // function preferBrandName(name) {
+// //   if (!name) return "";
+// //   const words = name.split(/\s+/);
+// //   const hasLegal = /(pvt|private|ltd|llp|inc|llc|corp|company|enterprises)/i.test(name);
+// //   if (hasLegal && words.length > 3) {
+// //     return words.filter((w) => !/(pvt|private|ltd|llp|inc|llc|corp|company|enterprises)/i.test(w)).join(" ");
+// //   }
+// //   return name;
+// // }
+
+// // function sanitizeCompany(name, websites, emails, logos) {
+// //   if (!name) {
+// //     return deriveCompanyFromDomain(emails?.[0]?.split("@")[1] || websites?.[0] || "");
+// //   }
+// //   if (BLOCKED_COMPANIES.includes(name.trim())) {
+// //     return deriveCompanyFromDomain(emails?.[0]?.split("@")[1] || websites?.[0] || logos?.[0] || "");
+// //   }
+// //   return preferBrandName(name);
+// // }
+
+// // function fallbackAddressFromText(text) {
+// //   const lines = text.split("\n").map((l) => l.trim());
+// //   const addrLines = lines.filter((l) =>
+// //     /(road|street|area|sector|block|phase|lane|building|floor|tower|thane|mira|mumbai|pune|delhi|bangalore|chennai|kolkata|india|\d{6})/i.test(l)
+// //   );
+// //   return addrLines.join(", ");
+// // }
+
+// // function cleanAddress(text) {
+// //   if (!text) return "";
+// //   const lines = text.split(/[\n,]+/).map((l) => l.trim()).filter(
+// //     (l) =>
+// //       l &&
+// //       !/\d{7,}/.test(l) &&   // phones
+// //       !/@/.test(l) &&        // emails
+// //       !/https?:\/\//.test(l) && // websites
+// //       !/www\./i.test(l)
+// //   );
+// //   return lines.join(", ");
+// // }
+
+// // // ---------- OCR ----------
+// // async function processOCR(filePath) {
+// //   console.log("🔎 OCR: Processing file ->", filePath);
+// //   const [result] = await visionClient.textDetection(filePath);
+// //   const detections = result.textAnnotations;
+// //   const text = detections.length > 0 ? detections[0].description : "";
+// //   console.log("📝 Extracted Text:", text);
+// //   const [logoResult] = await visionClient.logoDetection(filePath);
+// //   const logos = logoResult.logoAnnotations.map((l) => l.description);
+// //   return {
+// //     filename: path.basename(filePath),
+// //     text,
+// //     logos,
+// //     emails: extractEmails(text),
+// //     phones: extractPhones(text),
+// //     websites: extractWebsites(text),
+// //   };
+// // }
+
+// // // ---------- Batching ----------
+// // async function processInBatches(items, batchSize, fn, ws, userId, stage) {
+// //   const results = [];
+// //   for (let i = 0; i < items.length; i += batchSize) {
+// //     const batch = items.slice(i, i + batchSize);
+// //     const batchResults = await Promise.all(batch.map(fn));
+// //     results.push(...batchResults);
+// //     safeSend(ws, { type: "ocr-progress", userId, stage, done: i + batch.length, total: items.length, percent: Math.round(((i + batch.length) / items.length) * 100) });
+// //   }
+// //   return results;
+// // }
+
+// // // ---------- GPT Parsing ----------
+// // async function parseCardsWithGPT(cards, ws, userId, batchSize = 10) {
+// //   console.log(`🤖 GPT: Parsing ${cards.length} cards in batches of ${batchSize}`);
+// //   const batches = [];
+// //   for (let i = 0; i < cards.length; i += batchSize) {
+// //     batches.push(cards.slice(i, i + batchSize));
+// //   }
+
+// //   const results = await Promise.all(
+// //     batches.map(async (batch, batchIndex) => {
+// //       const offset = batchIndex * batchSize;
+// //       let prompt =
+// //         `You are an expert at parsing business card OCR text into structured JSON.\n` +
+// //         `Extract only relevant contact information.\n\n` +
+// //         `Rules:\n- One object per input card.\n- Output exactly ${batch.length} objects inside "cards" array.\n` +
+// //         `- If missing, leave fields empty.\n- Ignore slogans, taglines, random text.\n`;
+
+// //       batch.forEach((card, idx) => {
+// //         prompt += `\nCard ${offset + idx + 1}:\nOCR: ${card.text}\n`;
+// //       });
+
+// //       try {
+// //         const response = await client.chat.completions.create({
+// //           model: "gpt-4o-mini",
+// //           messages: [{ role: "user", content: prompt }],
+// //           response_format: {
+// //             type: "json_schema",
+// //             json_schema: {
+// //               name: "business_cards",
+// //               schema: {
+// //                 type: "object",
+// //                 properties: {
+// //                   cards: {
+// //                     type: "array",
+// //                     items: {
+// //                       type: "object",
+// //                       properties: {
+// //                         fullName: { type: "string" },
+// //                         jobTitle: { type: "string" },
+// //                         company: { type: "string" },
+// //                         phones: { type: "array", items: { type: "string" } },
+// //                         emails: { type: "array", items: { type: "string" } },
+// //                         website: { type: "array", items: { type: "string" } },
+// //                         address: { type: "string" },
+// //                       },
+// //                       required: ["fullName","jobTitle","company","phones","emails","website","address"],
+// //                     },
+// //                   },
+// //                 },
+// //                 required: ["cards"],
+// //               },
+// //             },
+// //           },
+// //         });
+
+// //         const parsed = JSON.parse(response.choices[0].message.content);
+// //         const gptCards = parsed.cards;
+// //         if (gptCards.length !== batch.length) throw new Error("GPT count mismatch");
+
+// //         return gptCards.map((r, i) => normalizeCard(r, batch[i], offset + i + 1));
+// //       } catch (err) {
+// //         console.error(`GPT Error in batch ${batchIndex}:`, err.message);
+// //         // retry once before fallback
+// //         try {
+// //           const retryResponse = await client.chat.completions.create({
+// //             model: "gpt-4o-mini",
+// //             messages: [{ role: "user", content: prompt }],
+// //           });
+// //           const parsed = JSON.parse(retryResponse.choices[0].message.content);
+// //           return parsed.cards.map((r, i) => normalizeCard(r, batch[i], offset + i + 1));
+// //         } catch {
+// //           return batch.map((c, i) => fallbackParse(c, offset + i + 1));
+// //         }
+// //       }
+// //     })
+// //   );
+
+// //   const parsedCards = results.flat();
+// //   return mergeParsedCards(parsedCards);
+// // }
+
+// // // ---------- Normalization ----------
+// // function normalizeCard(r, fallback, index) {
+// //   let fullName = r.fullName || extractNameFromText(fallback.text);
+// //   if (JUNK_WORDS.some((w) => fullName?.toLowerCase().includes(w))) fullName = "N/A";
+
+// //   let company = sanitizeCompany(r.company, fallback.websites, fallback.emails, fallback.logos);
+
+// //   return {
+// //     cardId: uuidv4(),
+// //     fullName,
+// //     jobTitle: r.jobTitle || fallback.text.match(/(Director|Founder|Manager|CEO|CTO|Co[- ]Founder|Partner|Proprietor)/i)?.[0] || "",
+// //     company,
+// //     phones: expandPhoneVariants(ensureArray(r.phones?.length ? r.phones : fallback.phones)),
+// //     emails: ensureArray(r.emails?.length ? r.emails : fallback.emails),
+// //     website: ensureArray(r.website?.length ? r.website : fallback.websites).map(normalizeWebsite),
+// //     address: cleanAddress(r.address || fallbackAddressFromText(fallback.text)),
+// //     gptSource: "gpt-schema",
+// //   };
+// // }
+
+// // function fallbackParse(c, index) {
+// //   return {
+// //     cardId: uuidv4(),
+// //     fullName: extractNameFromText(c.text),
+// //     jobTitle: c.text.match(/(Director|Founder|Manager|CEO|CTO|Co[- ]Founder|Partner|Proprietor)/i)?.[0] || "",
+// //     company: deriveCompanyFromDomain(c.emails?.[0]?.split("@")[1] || c.websites?.[0] || ""),
+// //     phones: expandPhoneVariants(ensureArray(c.phones)),
+// //     emails: ensureArray(c.emails),
+// //     website: ensureArray(c.websites).map(normalizeWebsite),
+// //     address: cleanAddress(fallbackAddressFromText(c.text)),
+// //     gptSource: "fallback",
+// //   };
+// // }
+
+// // // ---------- Main Controller ----------
+// // async function processBusinessCardWS(req, res) {
+// //   try {
+// //     const { userId, mode } = req.body;
+// //     console.log(`📥 Received upload from user ${userId}, Mode: ${mode}`);
+// //     if (!userId) return res.status(400).json({ error: "userId is required" });
+
+// //     const ws = global.wssClients[userId];
+// //     if (!ws) return res.status(400).json({ error: "No active WebSocket connection" });
+
+// //     let pairedCards = [];
+
+// //     if (mode === "single") {
+// //       const front = req.files["frontImage"]?.[0];
+// //       const back = req.files["backImage"]?.[0];
+// //       if (!front) return res.status(400).json({ error: "Front image is required in single mode" });
+
+// //       const frontOCR = await processOCR(front.path);
+// //       fs.unlinkSync(front.path);
+// //       if (back) {
+// //         const backOCR = await processOCR(back.path);
+// //         fs.unlinkSync(back.path);
+// //         console.log(`🔗 Forced merge (single mode): ${front.filename} + ${back.filename}`);
+// //         pairedCards = [mergeCards(frontOCR, backOCR)];
+// //       } else {
+// //         pairedCards = [frontOCR];
+// //       }
+// //       safeSend(ws, { type: "ocr-progress", userId, stage: "Pairing", done: pairedCards.length, total: pairedCards.length, percent: 100 });
+// //     } else if (mode === "bulk") {
+// //       const bulkFiles = req.files["files"] || [];
+// //       if (bulkFiles.length === 0) return res.status(400).json({ error: "No files uploaded for bulk mode" });
+
+// //       const ocrResults = await processInBatches(
+// //         bulkFiles,
+// //         10,
+// //         async (file) => {
+// //           const result = await processOCR(file.path);
+// //           fs.unlinkSync(file.path);
+// //           return result;
+// //         },
+// //         ws,
+// //         userId,
+// //         "OCR"
+// //       );
+
+// //       pairedCards = pairCards(ocrResults);
+// //       console.log(`📑 Bulk mode: ${bulkFiles.length} files → ${pairedCards.length} merged cards`);
+// //       safeSend(ws, { type: "ocr-progress", userId, stage: "Pairing", done: pairedCards.length, total: pairedCards.length, percent: 100 });
+// //     } else {
+// //       return res.status(400).json({ error: "Invalid mode. Use 'single' or 'bulk'" });
+// //     }
+
+// //     // GPT PARSING + MERGING
+// //     const finalParsed = await parseCardsWithGPT(pairedCards, ws, userId, 25);
+// //     finalParsed.forEach((card) => {
+// //       card.sourceMode = mode;
+// //       card.cardId = card.cardId || uuidv4();
+// //     });
+
+// //     // COMPLETE
+// //     console.log("📊 Final Parsed & Merged Results:");
+// //     console.log(`   Total Unique Contacts: ${finalParsed.length}`);
+// //     finalParsed.forEach((card, idx) => {
+// //       console.log(`   #${idx + 1}: ${card.fullName || "N/A"} | ${card.company || "N/A"}`);
+// //     });
+
+// //     safeSend(ws, { type: "ocr-complete", userId, data: finalParsed });
+// //     return res.json({ success: true, message: "Processing started. Progress via WebSocket.", mode });
+// //   } catch (err) {
+// //     console.error("❌ OCR WS Error:", err);
+// //     return res.status(500).json({ error: "OCR processing failed" });
+// //   }
+// // }
+
+// // module.exports = { processBusinessCardWS };
+
+
+// // controllers/ocrController.js
+// const vision = require("@google-cloud/vision");
+// const fs = require("fs");
+// const path = require("path");
+// const { pairCards, mergeCards } = require("../services/cardPairingService");
+// const { mergeParsedCards } = require("../services/cardMergeService");
+// const OpenAI = require("openai");
+// const { v4: uuidv4 } = require("uuid");
+
+// const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+// const visionClient = new vision.ImageAnnotatorClient({
+//   credentials: JSON.parse(process.env.GOOGLE_CLOUD_CREDENTIALS),
+// });
+
+// // ---------- Constants ----------
+// const GENERIC_DOMAINS = ["gmail.com", "yahoo.com", "hotmail.com", "outlook.com", "rediff.com"];
+// const GENERIC_COMPANY_DOMAINS = [...GENERIC_DOMAINS, "google.com", "microsoft.com", "apple.com"];
+// const BLOCKED_COMPANIES = ["Google", "Microsoft", "Apple", "Yahoo", "Gmail"];
+// const JUNK_WORDS = ["our products", "since", "group", "company", "manding", "trading", "services", "solutions"];
+
+// // Extended exclude words for better name validation
+// const NAME_EXCLUDE_WORDS = [
+//   'Private Limited', 'Pvt Ltd', 'Company', 'Corporation', 'Services', 'Solutions',
+//   'Technologies', 'Enterprises', 'Industries', 'Group', 'International',
+//   'Office', 'Phone', 'Email', 'Website', 'Address', 'Contact', 'Mobile',
+//   'Telephone', 'Fax', 'Director', 'Manager', 'CEO', 'CTO', 'Founder'
+// ];
+
+// // ---------- Helpers ----------
+// function safeSend(ws, obj) {
+//   if (!ws) return;
+//   try {
+//     ws.send(JSON.stringify(obj));
+//   } catch (err) {
+//     console.error("⚠️ WS send failed:", err.message);
+//   }
+// }
+
+// function ensureArray(value) {
+//   if (!value) return [];
+//   return Array.isArray(value) ? value : [value];
+// }
+
+// // ---------- Enhanced Extraction Functions ----------
+// function extractEmails(text) {
+//   // More comprehensive email regex
+//   const emailRegex = /\b[A-Za-z0-9]([A-Za-z0-9._-]*[A-Za-z0-9])?@[A-Za-z0-9]([A-Za-z0-9.-]*[A-Za-z0-9])?\.[A-Za-z]{2,}\b/g;
+//   const emails = text.match(emailRegex) || [];
+  
+//   return [...new Set(emails.filter(email => {
+//     // Filter out obviously wrong emails
+//     const domain = email.split('@')[1]?.toLowerCase();
+//     return domain && 
+//            domain.includes('.') && 
+//            !domain.startsWith('.') && 
+//            !domain.endsWith('.') &&
+//            domain.length > 3 &&
+//            !domain.includes('..'); // No consecutive dots
+//   }))];
+// }
+
+// function extractPhones(text) {
+//   // Enhanced phone number patterns
+//   const phonePatterns = [
+//     /\+\d{1,4}[-.\s]?\(?\d{1,4}\)?[-.\s]?\d{1,4}[-.\s]?\d{1,9}/g, // International
+//     /\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}/g, // US format
+//     /\d{4}[-.\s]?\d{3}[-.\s]?\d{3}/g, // Some international formats
+//     /\d{2,4}[-.\s]?\d{4}[-.\s]?\d{4}/g, // General format
+//     /\d{10,}/g // Just digits, 10 or more
+//   ];
+  
+//   const phones = [];
+//   phonePatterns.forEach(pattern => {
+//     const matches = text.match(pattern) || [];
+//     phones.push(...matches);
+//   });
+  
+//   return [...new Set(phones.filter(phone => {
+//     const digits = phone.replace(/\D/g, '');
+//     return digits.length >= 7 && digits.length <= 15; // Valid phone length
+//   }))];
+// }
+
+// function expandPhoneVariants(phones) {
+//   phones = ensureArray(phones);
+//   const expanded = [];
+  
+//   phones.forEach((p) => {
+//     if (typeof p !== "string") return;
+    
+//     // Handle slash notation (e.g., "123-456-78/90")
+//     if (p.includes("/")) {
+//       const baseMatch = p.match(/(\d+[-.\s]*\d*[-.\s]*\d*)/);
+//       if (baseMatch) {
+//         const basePart = baseMatch[1];
+//         const lastDigits = basePart.match(/\d{2}$/);
+//         if (lastDigits) {
+//           const baseWithoutLast2 = basePart.slice(0, -2);
+//           const suffixes = p.split("/").map(s => s.replace(/\D/g, '')).filter(Boolean);
+//           suffixes.forEach(suffix => {
+//             if (suffix.length <= 2) {
+//               expanded.push(baseWithoutLast2 + suffix);
+//             } else {
+//               expanded.push(suffix);
+//             }
+//           });
+//         }
+//       }
+//     } else {
+//       // Clean and validate single phone numbers
+//       const cleaned = p.replace(/[^\d+]/g, '');
+//       if (cleaned.match(/^\+?\d{7,15}$/)) {
+//         expanded.push(cleaned);
+//       }
+//     }
+//   });
+  
+//   return [...new Set(expanded.filter(Boolean))];
+// }
+
+// function normalizeWebsite(url) {
+//   if (!url) return "";
+  
+//   let clean = url.trim().toLowerCase();
+//   // Remove multiple protocols
+//   clean = clean.replace(/^(https?:\/\/)+/i, "");
+//   // Remove www
+//   const noWWW = clean.replace(/^www\./, "");
+  
+//   // Validate domain format
+//   if (!/^[a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9]*\.[a-zA-Z]{2,}/.test(noWWW)) {
+//     return "";
+//   }
+  
+//   return "https://" + noWWW;
+// }
+
+// function extractWebsites(text) {
+//   const websitePatterns = [
+//     /https?:\/\/(?:www\.)?[a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9]*\.(?:[a-zA-Z]{2,}|[a-zA-Z]{2,}\.[a-zA-Z]{2,})(?:\/[^\s]*)*/gi,
+//     /(?:www\.)?[a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9]*\.(?:com|org|net|edu|gov|mil|int|co\.uk|co\.in|in|co|biz|info)(?:\/[^\s]*)*/gi
+//   ];
+  
+//   const websites = [];
+//   websitePatterns.forEach(pattern => {
+//     const matches = text.match(pattern) || [];
+//     websites.push(...matches);
+//   });
+  
+//   return [...new Set(websites
+//     .filter(w => !GENERIC_DOMAINS.some(g => w.toLowerCase().includes(g.toLowerCase())))
+//     .map(normalizeWebsite)
+//     .filter(w => {
+//       if (!w) return false;
+//       try {
+//         new URL(w);
+//         return true;
+//       } catch {
+//         return false;
+//       }
+//     })
+//   )];
+// }
+
+// // ---------- Enhanced Name Extraction ----------
+// function isValidName(name) {
+//   if (!name || name.length < 2) return false;
+  
+//   // Exclude company-like words and common false positives
+//   const lowerName = name.toLowerCase();
+  
+//   // Check against exclude words
+//   if (NAME_EXCLUDE_WORDS.some(word => lowerName.includes(word.toLowerCase()))) {
+//     return false;
+//   }
+  
+//   // Exclude if contains 3+ consecutive digits
+//   if (/\d{3,}/.test(name)) return false;
+  
+//   // Exclude if contains @ or common symbols
+//   if (/@|#|\$|%|\*/.test(name)) return false;
+  
+//   // Must contain at least one alphabetic character
+//   if (!/[a-zA-Z]/.test(name)) return false;
+  
+//   // Exclude single character names
+//   if (name.trim().length < 2) return false;
+  
+//   return true;
+// }
+
+// function extractNameFromText(text) {
+//   if (!text) return "";
+  
+//   const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+  
+//   // First, try to find names with proper titles/roles
+//   const titlePattern = /(?:Director|Founder|Manager|CEO|CTO|Co[- ]?Founder|Partner|Proprietor|President|VP|Vice President|Executive|Head|Lead)[:\-\s]+([A-Z][a-zA-Z.\s]{2,30})/i;
+//   const titleMatch = text.match(titlePattern);
+//   if (titleMatch) {
+//     const name = titleMatch[1].trim();
+//     if (isValidName(name)) return cleanName(name);
+//   }
+  
+//   // Look for names at the beginning of the card (typically first 3 lines)
+//   for (let i = 0; i < Math.min(3, lines.length); i++) {
+//     const line = lines[i];
+    
+//     // Enhanced pattern: supports initials, middle names, and common name patterns
+//     const namePatterns = [
+//       /^[A-Z][a-z]{1,}(\s+[A-Z]\.?\s*)*[A-Z][a-z]{1,}$/,  // First Last, First M. Last
+//       /^[A-Z][a-z]{1,}\s+[A-Z][a-z]{1,}$/,                // Simple First Last
+//       /^[A-Z]\.\s*[A-Z][a-z]{1,}\s+[A-Z][a-z]{1,}$/,       // F. Middle Last
+//       /^[A-Z][a-z]{1,}\s+[A-Z]\.\s*[A-Z][a-z]{1,}$/        // First M. Last
+//     ];
+    
+//     if (namePatterns.some(pattern => pattern.test(line)) && isValidName(line)) {
+//       return cleanName(line);
+//     }
+//   }
+  
+//   // Look for capitalized words that could be names
+//   const namePatterns = text.match(/\b[A-Z][a-z]{1,}(?:\s+[A-Z]\.?\s*)*[A-Z][a-z]{1,}\b/g) || [];
+//   for (const pattern of namePatterns) {
+//     if (isValidName(pattern)) return cleanName(pattern);
+//   }
+  
+//   return "";
+// }
+
+// function cleanName(name) {
+//   return name.trim().replace(/\s+/g, ' ');
+// }
+
+// // ---------- Enhanced Company Processing ----------
+// function deriveCompanyFromDomain(domain) {
+//   if (!domain) return "";
+  
+//   const clean = domain.replace(/^www\./, "").toLowerCase();
+//   if (GENERIC_COMPANY_DOMAINS.includes(clean)) return "";
+  
+//   const name = clean.split(".")[0];
+//   // Capitalize first letter of each word
+//   return name.split(/[-_]/).map(word => 
+//     word.charAt(0).toUpperCase() + word.slice(1)
+//   ).join(' ');
+// }
+
+// function preferBrandName(name) {
+//   if (!name) return "";
+  
+//   const words = name.split(/\s+/);
+//   const legalTerms = /(pvt|private|ltd|llp|inc|llc|corp|company|enterprises|corporation)/i;
+//   const hasLegal = legalTerms.test(name);
+  
+//   if (hasLegal && words.length > 2) {
+//     // Remove legal terms but keep meaningful words
+//     return words.filter(w => !legalTerms.test(w)).join(" ").trim();
+//   }
+  
+//   return name;
+// }
+
+// function sanitizeCompany(name, websites, emails, logos) {
+//   // Try provided name first
+//   if (name && !BLOCKED_COMPANIES.includes(name.trim())) {
+//     return preferBrandName(name);
+//   }
+  
+//   // Try logos
+//   if (logos && logos.length > 0) {
+//     const logo = logos[0];
+//     if (!BLOCKED_COMPANIES.includes(logo)) {
+//       return preferBrandName(logo);
+//     }
+//   }
+  
+//   // Derive from email domain
+//   const emailDomain = emails?.[0]?.split("@")[1];
+//   if (emailDomain) {
+//     const derived = deriveCompanyFromDomain(emailDomain);
+//     if (derived) return derived;
+//   }
+  
+//   // Derive from website
+//   const websiteDomain = websites?.[0]?.replace(/^https?:\/\//, "").split("/")[0];
+//   if (websiteDomain) {
+//     return deriveCompanyFromDomain(websiteDomain);
+//   }
+  
+//   return "";
+// }
+
+// // ---------- Enhanced Address Processing ----------
+// function fallbackAddressFromText(text) {
+//   if (!text) return "";
+  
+//   const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+  
+//   // Look for address indicators
+//   const addressIndicators = [
+//     /address/i, /addr/i, /location/i, /office/i,
+//     /road|street|avenue|lane|drive|place|boulevard|rd|st|ave/i,
+//     /area|sector|block|phase|tower|building|floor|apartment|apt/i,
+//     /city|town|district|state|country/i,
+//     /\d{5,6}/, // PIN codes
+//     /plot|house|flat/i
+//   ];
+  
+//   const addressLines = [];
+  
+//   lines.forEach(line => {
+//     // Skip lines with emails, phones, or websites
+//     if (/@/.test(line) || /https?:\/\//.test(line) || /www\./i.test(line)) return;
+//     if (/\+?\d[\d\s\-()]{7,}\d/.test(line)) return;
+    
+//     // Include lines with address indicators or lines with numbers (could be addresses)
+//     if (addressIndicators.some(indicator => indicator.test(line)) || 
+//         (/\d/.test(line) && line.length > 5 && !/^\d+$/.test(line))) {
+//       addressLines.push(line);
+//     }
+//   });
+  
+//   return addressLines.join(', ');
+// }
+
+// function cleanAddress(text) {
+//   if (!text) return "";
+  
+//   const lines = text.split(/[\n,]+/).map(l => l.trim()).filter(line =>
+//     line &&
+//     !/^\d{7,}$/.test(line) &&   // Just phone numbers
+//     !/@/.test(line) &&          // emails
+//     !/^https?:\/\//.test(line) && // websites
+//     !/^www\./i.test(line) &&    // websites
+//     line.length > 2
+//   );
+  
+//   return lines.join(', ');
+// }
+
+// // ---------- Enhanced OCR Processing ----------
+// function preprocessText(text) {
+//   if (!text) return "";
+  
+//   // Fix common OCR errors
+//   let cleaned = text
+//     .replace(/[|]/g, 'I') // Common OCR mistake - pipe to I
+//     .replace(/\s+/g, ' ') // Normalize whitespace
+//     .replace(/[^\x20-\x7E\n\r]/g, '') // Remove non-ASCII characters except newlines
+//     .trim();
+    
+//   return cleaned;
+// }
+
+// async function processOCR(filePath) {
+//   console.log("🔎 OCR: Processing file ->", filePath);
+  
+//   try {
+//     // Use both text detection and document text detection for better accuracy
+//     const [textResult] = await visionClient.textDetection(filePath);
+//     const [documentResult] = await visionClient.documentTextDetection(filePath);
+    
+//     let text = "";
+//     if (documentResult.fullTextAnnotation?.text) {
+//       // Use document text detection for structured text
+//       text = documentResult.fullTextAnnotation.text;
+//     } else if (textResult.textAnnotations?.length > 0) {
+//       // Fallback to regular text detection
+//       text = textResult.textAnnotations[0].description;
+//     }
+    
+//     console.log("📝 Extracted Text:", text);
+    
+//     const [logoResult] = await visionClient.logoDetection(filePath);
+//     const logos = logoResult.logoAnnotations?.map(l => l.description) || [];
+    
+//     // Clean and preprocess the text
+//     const cleanedText = preprocessText(text);
+    
+//     return {
+//       filename: path.basename(filePath),
+//       text: cleanedText,
+//       originalText: text,
+//       logos,
+//       emails: extractEmails(cleanedText),
+//       phones: extractPhones(cleanedText),
+//       websites: extractWebsites(cleanedText),
+//     };
+    
+//   } catch (error) {
+//     console.error("OCR processing error:", error);
+//     throw error;
+//   }
+// }
+
+// // ---------- Enhanced Batch Processing ----------
+// async function processInBatches(items, batchSize, fn, ws, userId, stage) {
+//   const results = [];
+  
+//   for (let i = 0; i < items.length; i += batchSize) {
+//     const batch = items.slice(i, i + batchSize);
+    
+//     try {
+//       const batchResults = await Promise.all(batch.map(fn));
+//       results.push(...batchResults);
+//     } catch (error) {
+//       console.error(`Batch processing error at ${i}:`, error);
+//       // Process individually on batch failure
+//       for (const item of batch) {
+//         try {
+//           const result = await fn(item);
+//           results.push(result);
+//         } catch (itemError) {
+//           console.error("Individual item processing failed:", itemError);
+//         }
+//       }
+//     }
+    
+//     const progress = Math.round(((i + batch.length) / items.length) * 100);
+//     safeSend(ws, { 
+//       type: "ocr-progress", 
+//       userId, 
+//       stage, 
+//       done: i + batch.length, 
+//       total: items.length, 
+//       percent: progress 
+//     });
+//   }
+  
+//   return results;
+// }
+
+// // ---------- Enhanced GPT Parsing ----------
+// async function parseCardsWithGPT(cards, ws, userId, batchSize = 5) {
+//   console.log(`🤖 GPT: Parsing ${cards.length} cards in batches of ${batchSize}`);
+  
+//   const batches = [];
+//   for (let i = 0; i < cards.length; i += batchSize) {
+//     batches.push(cards.slice(i, i + batchSize));
+//   }
+
+//   const results = await Promise.all(
+//     batches.map(async (batch, batchIndex) => {
+//       const offset = batchIndex * batchSize;
+      
+//       const prompt = `You are an expert at parsing business card OCR text into structured JSON.
+// Extract only relevant contact information with high accuracy.
+
+// Rules:
+// 1. Extract exactly ${batch.length} card objects in the "cards" array
+// 2. Person's full name (not company name) 
+// 3. Job title/designation only
+// 4. Company name (prefer brand name over legal entity)
+// 5. Clean phone numbers (remove extra formatting)
+// 6. Valid email addresses only
+// 7. Company websites (not generic domains)
+// 8. Complete address if clearly present
+// 9. If information is unclear or missing, leave empty string rather than guessing
+// 10. Ignore promotional text, slogans, services descriptions
+
+// ${batch.map((card, idx) => `
+// Card ${offset + idx + 1}:
+// OCR Text: ${card.text}
+// Pre-detected: 
+// - Emails: ${card.emails?.join(', ') || 'None'}
+// - Phones: ${card.phones?.join(', ') || 'None'}  
+// - Websites: ${card.websites?.join(', ') || 'None'}
+// - Logos: ${card.logos?.join(', ') || 'None'}
+// `).join('')}
+
+// Return valid JSON only:`;
+
+//       try {
+//         const response = await client.chat.completions.create({
+//           model: "gpt-4o-mini",
+//           messages: [{ role: "user", content: prompt }],
+//           temperature: 0.1, // Lower temperature for consistency
+//           response_format: {
+//             type: "json_schema",
+//             json_schema: {
+//               name: "business_cards",
+//               schema: {
+//                 type: "object",
+//                 properties: {
+//                   cards: {
+//                     type: "array",
+//                     items: {
+//                       type: "object",
+//                       properties: {
+//                         fullName: { type: "string" },
+//                         jobTitle: { type: "string" },
+//                         company: { type: "string" },
+//                         phones: { type: "array", items: { type: "string" } },
+//                         emails: { type: "array", items: { type: "string" } },
+//                         websites: { type: "array", items: { type: "string" } },
+//                         address: { type: "string" },
+//                       },
+//                       required: ["fullName","jobTitle","company","phones","emails","websites","address"],
+//                     },
+//                   },
+//                 },
+//                 required: ["cards"],
+//               },
+//             },
+//           },
+//         });
+
+//         const parsed = JSON.parse(response.choices[0].message.content);
+//         const gptCards = parsed.cards;
+        
+//         if (gptCards.length !== batch.length) {
+//           console.warn(`GPT returned ${gptCards.length} cards, expected ${batch.length}`);
+//         }
+
+//         return gptCards.map((r, i) => normalizeCard(r, batch[i], offset + i + 1));
+        
+//       } catch (err) {
+//         console.error(`GPT Error in batch ${batchIndex}:`, err.message);
+        
+//         // Retry once with simpler prompt
+//         try {
+//           const simplePrompt = `Parse these business cards into JSON format. Extract: fullName, jobTitle, company, phones (array), emails (array), websites (array), address.
+
+// ${batch.map((card, idx) => `Card ${idx + 1}: ${card.text}`).join('\n\n')}`;
+
+//           const retryResponse = await client.chat.completions.create({
+//             model: "gpt-4o-mini",
+//             messages: [{ role: "user", content: simplePrompt }],
+//             temperature: 0.2,
+//           });
+          
+//           const retryParsed = JSON.parse(retryResponse.choices[0].message.content);
+//           const retryCards = retryParsed.cards || [retryParsed];
+          
+//           return retryCards.map((r, i) => normalizeCard(r, batch[i], offset + i + 1));
+//         } catch (retryErr) {
+//           console.error("GPT retry failed:", retryErr);
+//           return batch.map((c, i) => fallbackParse(c, offset + i + 1));
+//         }
+//       }
+//     })
+//   );
+
+//   const flatResults = results.flat();
+//   return mergeParsedCards(flatResults);
+// }
+
+// // ---------- Enhanced Normalization ----------
+// function normalizeCard(r, fallback, index) {
+//   // Enhanced name processing
+//   let fullName = r.fullName || extractNameFromText(fallback.text);
+//   if (JUNK_WORDS.some(w => fullName?.toLowerCase().includes(w))) {
+//     fullName = extractNameFromText(fallback.text) || "N/A";
+//   }
+
+//   // Enhanced company processing
+//   let company = sanitizeCompany(
+//     r.company, 
+//     ensureArray(r.websites || fallback.websites), 
+//     ensureArray(r.emails || fallback.emails), 
+//     fallback.logos
+//   );
+
+//   // Enhanced job title extraction
+//   let jobTitle = r.jobTitle;
+//   if (!jobTitle) {
+//     const titleMatch = fallback.text.match(/(Director|Founder|Manager|CEO|CTO|Co[- ]?Founder|Partner|Proprietor|President|VP|Vice President|Executive)/i);
+//     jobTitle = titleMatch ? titleMatch[0] : "";
+//   }
+
+//   return {
+//     cardId: uuidv4(),
+//     fullName: cleanName(fullName),
+//     jobTitle,
+//     company,
+//     phones: expandPhoneVariants(ensureArray(r.phones?.length ? r.phones : fallback.phones)),
+//     emails: ensureArray(r.emails?.length ? r.emails : fallback.emails),
+//     websites: ensureArray(r.websites?.length ? r.websites : fallback.websites).map(normalizeWebsite).filter(Boolean),
+//     address: cleanAddress(r.address || fallbackAddressFromText(fallback.text)),
+//     gptSource: "gpt-schema",
+//     confidence: 0, // Will be calculated later
+//   };
+// }
+
+// function fallbackParse(c, index) {
+//   const name = extractNameFromText(c.text);
+//   const company = sanitizeCompany("", c.websites, c.emails, c.logos);
+  
+//   return {
+//     cardId: uuidv4(),
+//     fullName: name,
+//     jobTitle: c.text.match(/(Director|Founder|Manager|CEO|CTO|Co[- ]?Founder|Partner|Proprietor)/i)?.[0] || "",
+//     company,
+//     phones: expandPhoneVariants(ensureArray(c.phones)),
+//     emails: ensureArray(c.emails),
+//     websites: ensureArray(c.websites).map(normalizeWebsite).filter(Boolean),
+//     address: cleanAddress(fallbackAddressFromText(c.text)),
+//     gptSource: "fallback",
+//     confidence: 0,
+//   };
+// }
+
+// // ---------- Validation and Confidence Scoring ----------
+// function validateAndScoreCard(card) {
+//   let confidence = 0;
+  
+//   const factors = {
+//     hasValidName: (card.fullName && card.fullName !== "N/A" && card.fullName.length > 2) ? 25 : 0,
+//     hasCompany: (card.company && card.company !== "N/A" && card.company.length > 1) ? 20 : 0,
+//     hasValidEmail: (card.emails?.length > 0 && card.emails.some(e => e.includes('@'))) ? 20 : 0,
+//     hasValidPhone: (card.phones?.length > 0 && card.phones.some(p => p.replace(/\D/g, '').length >= 7)) ? 15 : 0,
+//     hasWebsite: (card.websites?.length > 0 && card.websites.some(w => w.startsWith('http'))) ? 10 : 0,
+//     hasAddress: (card.address && card.address.length > 10) ? 10 : 0
+//   };
+  
+//   confidence = Object.values(factors).reduce((sum, val) => sum + val, 0);
+  
+//   return {
+//     ...card,
+//     confidence,
+//     isValid: confidence >= 40, // Minimum threshold for valid card
+//     validationFactors: factors
+//   };
+// }
+
+// // ---------- Main Controller ----------
+// async function processBusinessCardWS(req, res) {
+//   try {
+//     const { userId, mode } = req.body;
+//     console.log(`📥 Received upload from user ${userId}, Mode: ${mode}`);
+    
+//     if (!userId) return res.status(400).json({ error: "userId is required" });
+
+//     const ws = global.wssClients?.[userId];
+//     if (!ws) return res.status(400).json({ error: "No active WebSocket connection" });
+
+//     let pairedCards = [];
+
+//     if (mode === "single") {
+//       const front = req.files["frontImage"]?.[0];
+//       const back = req.files["backImage"]?.[0];
+      
+//       if (!front) return res.status(400).json({ error: "Front image is required in single mode" });
+
+//       try {
+//         const frontOCR = await processOCR(front.path);
+//         fs.unlinkSync(front.path);
+        
+//         if (back) {
+//           const backOCR = await processOCR(back.path);
+//           fs.unlinkSync(back.path);
+//           console.log(`🔗 Forced merge (single mode): ${front.filename} + ${back.filename}`);
+//           pairedCards = [mergeCards(frontOCR, backOCR)];
+//         } else {
+//           pairedCards = [frontOCR];
+//         }
+//       } catch (ocrError) {
+//         console.error("OCR Error in single mode:", ocrError);
+//         return res.status(500).json({ error: "OCR processing failed" });
+//       }
+      
+//       safeSend(ws, { 
+//         type: "ocr-progress", 
+//         userId, 
+//         stage: "Pairing", 
+//         done: pairedCards.length, 
+//         total: pairedCards.length, 
+//         percent: 100 
+//       });
+      
+//     } else if (mode === "bulk") {
+//       const bulkFiles = req.files["files"] || [];
+//       if (bulkFiles.length === 0) {
+//         return res.status(400).json({ error: "No files uploaded for bulk mode" });
+//       }
+
+//       const ocrResults = await processInBatches(
+//         bulkFiles,
+//         8, // Reduced batch size for better reliability
+//         async (file) => {
+//           try {
+//             const result = await processOCR(file.path);
+//             fs.unlinkSync(file.path);
+//             return result;
+//           } catch (error) {
+//             console.error(`OCR failed for ${file.filename}:`, error);
+//             fs.unlinkSync(file.path);
+//             return null;
+//           }
+//         },
+//         ws,
+//         userId,
+//         "OCR"
+//       );
+
+//       // Filter out failed OCR results
+//       const validOCRResults = ocrResults.filter(Boolean);
+      
+//       pairedCards = pairCards(validOCRResults);
+//       console.log(`📑 Bulk mode: ${bulkFiles.length} files → ${validOCRResults.length} OCR results → ${pairedCards.length} merged cards`);
+      
+//       safeSend(ws, { 
+//         type: "ocr-progress", 
+//         userId, 
+//         stage: "Pairing", 
+//         done: pairedCards.length, 
+//         total: pairedCards.length, 
+//         percent: 100 
+//       });
+      
+//     } else {
+//       return res.status(400).json({ error: "Invalid mode. Use 'single' or 'bulk'" });
+//     }
+
+//     // GPT PARSING + MERGING
+//     safeSend(ws, { type: "ocr-progress", userId, stage: "AI Processing", done: 0, total: pairedCards.length, percent: 0 });
+    
+//     const finalParsed = await parseCardsWithGPT(pairedCards, ws, userId, 5);
+    
+//     // Add metadata and validate
+//     const validatedCards = finalParsed.map(card => {
+//       const validated = validateAndScoreCard({
+//         ...card,
+//         sourceMode: mode,
+//         cardId: card.cardId || uuidv4(),
+//         processedAt: new Date().toISOString()
+//       });
+//       return validated;
+//     }).filter(card => card.isValid); // Only return valid cards
+
+//     // COMPLETE
+//     console.log("📊 Final Parsed & Validated Results:");
+//     console.log(`   Total Valid Contacts: ${validatedCards.length}`);
+//     console.log(`   Average Confidence: ${(validatedCards.reduce((sum, card) => sum + card.confidence, 0) / validatedCards.length).toFixed(1)}%`);
+    
+//     validatedCards.forEach((card, idx) => {
+//       console.log(`   #${idx + 1}: ${card.fullName || "N/A"} | ${card.company || "N/A"} | Confidence: ${card.confidence}%`);
+//     });
+
+//     safeSend(ws, { 
+//       type: "ocr-complete", 
+//       userId, 
+//       data: validatedCards,
+//       summary: {
+//         totalProcessed: pairedCards.length,
+//         validCards: validatedCards.length,
+//         averageConfidence: Math.round(validatedCards.reduce((sum, card) => sum + card.confidence, 0) / validatedCards.length) || 0
+//       }
+//     });
+    
+//     return res.json({ 
+//       success: true, 
+//       message: "Processing completed successfully", 
+//       mode,
+//       totalCards: validatedCards.length,
+//       averageConfidence: Math.round(validatedCards.reduce((sum, card) => sum + card.confidence, 0) / validatedCards.length) || 0
+//     });
+    
+//   } catch (err) {
+//     console.error("❌ OCR WS Error:", err);
+//     const ws = global.wssClients?.[req.body?.userId];
+//     if (ws) {
+//       safeSend(ws, { 
+//         type: "ocr-error", 
+//         userId: req.body?.userId, 
+//         error: "Processing failed. Please try again." 
+//       });
+//     }
+//     return res.status(500).json({ error: "OCR processing failed", details: err.message });
+//   }
+// }
+
+// module.exports = { 
+//   processBusinessCardWS,
+//   // Export helper functions for testing
+//   extractEmails,
+//   extractPhones,
+//   extractWebsites,
+//   extractNameFromText,
+//   validateAndScoreCard
+// };
+
+
+// controllers/ocrController.js
+const vision = require("@google-cloud/vision");
+const fs = require("fs");
+const path = require("path");
+const { pairCards, mergeCards } = require("../services/cardPairingService");
+const OpenAI = require("openai");
+const { v4: uuidv4 } = require("uuid");
+
+const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+const visionClient = new vision.ImageAnnotatorClient({
+  credentials: JSON.parse(process.env.GOOGLE_CLOUD_CREDENTIALS),
+});
+
+// ---------- Constants ----------
+const GENERIC_DOMAINS = ["gmail.com", "yahoo.com", "hotmail.com", "outlook.com", "rediff.com"];
+const GENERIC_COMPANY_DOMAINS = [...GENERIC_DOMAINS, "google.com", "microsoft.com", "apple.com"];
+const BLOCKED_COMPANIES = ["Google", "Microsoft", "Apple", "Yahoo", "Gmail"];
+const JUNK_WORDS = ["our products", "since", "group", "company", "manding", "trading", "services", "solutions"];
+
+// Extended exclude words for better name validation
+const NAME_EXCLUDE_WORDS = [
+  'Private Limited', 'Pvt Ltd', 'Company', 'Corporation', 'Services', 'Solutions',
+  'Technologies', 'Enterprises', 'Industries', 'Group', 'International',
+  'Office', 'Phone', 'Email', 'Website', 'Address', 'Contact', 'Mobile',
+  'Telephone', 'Fax', 'Director', 'Manager', 'CEO', 'CTO', 'Founder'
+];
+
+// ---------- Helpers ----------
+function safeSend(ws, obj) {
+  if (!ws) return;
+  try {
+    ws.send(JSON.stringify(obj));
+  } catch (err) {
+    console.error("⚠️ WS send failed:", err.message);
+  }
+}
+
+function ensureArray(value) {
+  if (!value) return [];
+  return Array.isArray(value) ? value : [value];
+}
+
+// ---------- Built-in Card Merging Function ----------
+function mergeParsedCards(cards) {
+  if (!cards || cards.length === 0) return [];
+  
+  const merged = [];
+  const processed = new Set();
+  
+  for (let i = 0; i < cards.length; i++) {
+    if (processed.has(i)) continue;
+    
+    const currentCard = cards[i];
+    const duplicates = [];
+    
+    // Find potential duplicates
+    for (let j = i + 1; j < cards.length; j++) {
+      if (processed.has(j)) continue;
+      
+      const otherCard = cards[j];
+      if (areCardsDuplicate(currentCard, otherCard)) {
+        duplicates.push(j);
+      }
+    }
+    
+    // Merge if duplicates found
+    if (duplicates.length > 0) {
+      const cardsToMerge = [currentCard, ...duplicates.map(idx => cards[idx])];
+      const mergedCard = mergeMultipleCards(cardsToMerge);
+      merged.push(mergedCard);
+      
+      // Mark as processed
+      processed.add(i);
+      duplicates.forEach(idx => processed.add(idx));
+    } else {
+      merged.push(currentCard);
+      processed.add(i);
+    }
+  }
+  
+  return merged;
+}
+
+function areCardsDuplicate(card1, card2) {
+  // Check for duplicate based on multiple criteria
+  const nameMatch = card1.fullName && card2.fullName && 
+    normalizeForComparison(card1.fullName) === normalizeForComparison(card2.fullName);
+    
+  const emailMatch = card1.emails?.length > 0 && card2.emails?.length > 0 &&
+    card1.emails.some(e1 => card2.emails.some(e2 => e1.toLowerCase() === e2.toLowerCase()));
+    
+  const phoneMatch = card1.phones?.length > 0 && card2.phones?.length > 0 &&
+    card1.phones.some(p1 => card2.phones.some(p2 => 
+      normalizePhone(p1) === normalizePhone(p2)
+    ));
+    
+  const companyMatch = card1.company && card2.company &&
+    normalizeForComparison(card1.company) === normalizeForComparison(card2.company);
+  
+  // Consider duplicate if name matches and (email or phone matches), or if email and phone both match
+  return (nameMatch && (emailMatch || phoneMatch)) || 
+         (emailMatch && phoneMatch) ||
+         (nameMatch && companyMatch && (emailMatch || phoneMatch));
+}
+
+function normalizeForComparison(str) {
+  return str?.toLowerCase().replace(/[^a-z0-9]/g, '') || '';
+}
+
+function normalizePhone(phone) {
+  return phone?.replace(/\D/g, '').slice(-10) || ''; // Last 10 digits
+}
+
+function mergeMultipleCards(cards) {
+  const merged = {
+    cardId: cards[0].cardId || uuidv4(),
+    fullName: "",
+    jobTitle: "",
+    company: "",
+    phones: [],
+    emails: [],
+    websites: [],
+    address: "",
+    gptSource: "merged",
+    confidence: 0,
+  };
+  
+  // Merge all fields, preferring non-empty values
+  cards.forEach(card => {
+    if (!merged.fullName && card.fullName && card.fullName !== "N/A") {
+      merged.fullName = card.fullName;
+    }
+    if (!merged.jobTitle && card.jobTitle) {
+      merged.jobTitle = card.jobTitle;
+    }
+    if (!merged.company && card.company && card.company !== "N/A") {
+      merged.company = card.company;
+    }
+    if (!merged.address && card.address) {
+      merged.address = card.address;
+    }
+    
+    // Merge arrays, removing duplicates
+    if (card.phones) {
+      merged.phones = [...new Set([...merged.phones, ...ensureArray(card.phones)])];
+    }
+    if (card.emails) {
+      merged.emails = [...new Set([...merged.emails, ...ensureArray(card.emails)])];
+    }
+    if (card.websites) {
+      merged.websites = [...new Set([...merged.websites, ...ensureArray(card.websites)])];
+    }
   });
-  console.log("✅ Google Vision client initialized with inline credentials");
-} else {
-  client = new vision.ImageAnnotatorClient();
-  console.log("✅ Google Vision client initialized with file credentials");
+  
+  // Calculate average confidence
+  const validConfidences = cards.filter(c => c.confidence > 0).map(c => c.confidence);
+  merged.confidence = validConfidences.length > 0 
+    ? Math.round(validConfidences.reduce((sum, conf) => sum + conf, 0) / validConfidences.length)
+    : 0;
+  
+  return merged;
 }
 
-// Regex patterns for hints
-const phoneRegex = /(\+?\d[\d\s\-().]{7,})/g;
-const emailRegex = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-z]{2,}/g;
-
-async function parseWithGPT4o(rawText, logos = []) {
-  const phonesFound = rawText.match(phoneRegex) || [];
-  const emailsFound = rawText.match(emailRegex) || [];
-
-  console.log("📌 OCR Raw Text:", rawText);
-  console.log("📌 Regex Phones:", phonesFound);
-  console.log("📌 Regex Emails:", emailsFound);
-  console.log("📌 Logos:", logos);
-
-  const input = `
-OCR Text:
-${rawText}
-
-Logos Detected:
-${logos.join(", ") || "None"}
-
-Regex Hints:
-Phones detected: ${phonesFound.join(", ") || "None"}
-Emails detected: ${emailsFound.join(", ") || "None"}
-`;
-
-  const systemPrompt = `You are an expert system for extracting structured contact information from messy OCR text.
-
-Output must be STRICT JSON with this schema:
-{
-  "fullName": "string",
-  "title": "string",
-  "company": "string",
-  "phoneNumbers": ["string"],
-  "emails": ["string"],
-  "website": "string",
-  "address": "string"
+// ---------- Enhanced Extraction Functions ----------
+function extractEmails(text) {
+  // More comprehensive email regex
+  const emailRegex = /\b[A-Za-z0-9]([A-Za-z0-9._-]*[A-Za-z0-9])?@[A-Za-z0-9]([A-Za-z0-9.-]*[A-Za-z0-9])?\.[A-Za-z]{2,}\b/g;
+  const emails = text.match(emailRegex) || [];
+  
+  return [...new Set(emails.filter(email => {
+    // Filter out obviously wrong emails
+    const domain = email.split('@')[1]?.toLowerCase();
+    return domain && 
+           domain.includes('.') && 
+           !domain.startsWith('.') && 
+           !domain.endsWith('.') &&
+           domain.length > 3 &&
+           !domain.includes('..'); // No consecutive dots
+  }))];
 }
+
+function extractPhones(text) {
+  // Enhanced phone number patterns
+  const phonePatterns = [
+    /\+\d{1,4}[-.\s]?\(?\d{1,4}\)?[-.\s]?\d{1,4}[-.\s]?\d{1,9}/g, // International
+    /\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}/g, // US format
+    /\d{4}[-.\s]?\d{3}[-.\s]?\d{3}/g, // Some international formats
+    /\d{2,4}[-.\s]?\d{4}[-.\s]?\d{4}/g, // General format
+    /\d{10,}/g // Just digits, 10 or more
+  ];
+  
+  const phones = [];
+  phonePatterns.forEach(pattern => {
+    const matches = text.match(pattern) || [];
+    phones.push(...matches);
+  });
+  
+  return [...new Set(phones.filter(phone => {
+    const digits = phone.replace(/\D/g, '');
+    return digits.length >= 7 && digits.length <= 15; // Valid phone length
+  }))];
+}
+
+function expandPhoneVariants(phones) {
+  phones = ensureArray(phones);
+  const expanded = [];
+  
+  phones.forEach((p) => {
+    if (typeof p !== "string") return;
+    
+    // Handle slash notation (e.g., "123-456-78/90")
+    if (p.includes("/")) {
+      const baseMatch = p.match(/(\d+[-.\s]*\d*[-.\s]*\d*)/);
+      if (baseMatch) {
+        const basePart = baseMatch[1];
+        const lastDigits = basePart.match(/\d{2}$/);
+        if (lastDigits) {
+          const baseWithoutLast2 = basePart.slice(0, -2);
+          const suffixes = p.split("/").map(s => s.replace(/\D/g, '')).filter(Boolean);
+          suffixes.forEach(suffix => {
+            if (suffix.length <= 2) {
+              expanded.push(baseWithoutLast2 + suffix);
+            } else {
+              expanded.push(suffix);
+            }
+          });
+        }
+      }
+    } else {
+      // Clean and validate single phone numbers
+      const cleaned = p.replace(/[^\d+]/g, '');
+      if (cleaned.match(/^\+?\d{7,15}$/)) {
+        expanded.push(cleaned);
+      }
+    }
+  });
+  
+  return [...new Set(expanded.filter(Boolean))];
+}
+
+// ---------- Enhanced Website Extraction ----------
+function normalizeWebsite(url) {
+  if (!url) return "";
+  
+  let clean = url.trim().toLowerCase();
+  
+  // Remove multiple protocols
+  clean = clean.replace(/^(https?:\/\/)+/gi, "");
+  
+  // Remove www
+  clean = clean.replace(/^www\./, "");
+  
+  // Remove trailing slashes and extra characters
+  clean = clean.replace(/[\/\s\n\r\t]*$/, "");
+  
+  // Validate basic domain format
+  if (!/^[a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9]*\.[a-zA-Z]{2,}/.test(clean)) {
+    return "";
+  }
+  
+  // Add https protocol
+  return "https://" + clean;
+}
+
+function extractWebsites(text) {
+  const websitePatterns = [
+    // Standard URLs with protocol
+    /https?:\/\/(?:www\.)?[a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9]*\.(?:[a-zA-Z]{2,}|[a-zA-Z]{2,}\.[a-zA-Z]{2,})(?:\/[^\s]*)*/gi,
+    
+    // URLs without protocol but with www
+    /www\.[a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9]*\.(?:com|org|net|edu|gov|mil|int|co\.uk|co\.in|in|co|biz|info|ai|io|ly|me|us|ca|de|fr|it|jp|kr|cn)(?:\/[^\s]*)*/gi,
+    
+    // Domain names without www (more comprehensive TLD list)
+    /\b[a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9]*\.(?:com|org|net|edu|gov|mil|int|co\.uk|co\.in|in|co|biz|info|ai|io|ly|me|us|ca|de|fr|it|jp|kr|cn|app|tech|online|site|store|shop|blog|news|pro|club|agency|solutions|services|consulting|group|company|corp|ltd|inc)\b/gi,
+    
+    // Common patterns found on business cards
+    /(?:website|web|url|site)[:\s]*([a-zA-Z0-9][a-zA-Z0-9-]*\.[a-zA-Z]{2,})/gi,
+    
+    // Email domain extraction (sometimes companies use their website domain in email)
+    /(?:@)([a-zA-Z0-9][a-zA-Z0-9-]*\.[a-zA-Z]{2,})/gi
+  ];
+  
+  const websites = [];
+  
+  websitePatterns.forEach((pattern, index) => {
+    const matches = text.match(pattern) || [];
+    
+    matches.forEach(match => {
+      let website = match;
+      
+      // For email domain pattern, extract just the domain
+      if (index === 4) { // Email domain pattern
+        const domainMatch = match.match(/@([^@\s]+)/);
+        if (domainMatch) {
+          website = domainMatch[1];
+        }
+      }
+      
+      // For website: prefix pattern, extract just the URL
+      if (index === 3) { // Website prefix pattern
+        const urlMatch = match.match(/(?:website|web|url|site)[:\s]*([a-zA-Z0-9][a-zA-Z0-9-]*\.[a-zA-Z]{2,})/i);
+        if (urlMatch) {
+          website = urlMatch[1];
+        }
+      }
+      
+      websites.push(website);
+    });
+  });
+  
+  // Clean and filter websites
+  return [...new Set(websites
+    .map(w => w.trim().toLowerCase())
+    .filter(w => {
+      // Skip generic domains
+      if (GENERIC_DOMAINS.some(g => w.includes(g))) return false;
+      
+      // Skip if it's clearly not a website
+      if (w.length < 4) return false;
+      
+      // Must contain a dot
+      if (!w.includes('.')) return false;
+      
+      // Skip if it contains spaces (likely not a website)
+      if (w.includes(' ')) return false;
+      
+      return true;
+    })
+    .map(normalizeWebsite)
+    .filter(w => {
+      if (!w) return false;
+      try {
+        new URL(w);
+        return true;
+      } catch {
+        // If URL constructor fails, try adding common protocols
+        try {
+          new URL('https://' + w.replace(/^https?:\/\//, ''));
+          return true;
+        } catch {
+          return false;
+        }
+      }
+    })
+  )];
+}
+
+// ---------- Enhanced Name Extraction ----------
+function isValidName(name) {
+  if (!name || name.length < 2) return false;
+  
+  // Exclude company-like words and common false positives
+  const lowerName = name.toLowerCase();
+  
+  // Check against exclude words
+  if (NAME_EXCLUDE_WORDS.some(word => lowerName.includes(word.toLowerCase()))) {
+    return false;
+  }
+  
+  // Exclude if contains 3+ consecutive digits
+  if (/\d{3,}/.test(name)) return false;
+  
+  // Exclude if contains @ or common symbols
+  if (/@|#|\$|%|\*/.test(name)) return false;
+  
+  // Must contain at least one alphabetic character
+  if (!/[a-zA-Z]/.test(name)) return false;
+  
+  // Exclude single character names
+  if (name.trim().length < 2) return false;
+  
+  return true;
+}
+
+function extractNameFromText(text) {
+  if (!text) return "";
+  
+  const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+  
+  // First, try to find names with proper titles/roles
+  const titlePattern = /(?:Director|Founder|Manager|CEO|CTO|Co[- ]?Founder|Partner|Proprietor|President|VP|Vice President|Executive|Head|Lead)[:\-\s]+([A-Z][a-zA-Z.\s]{2,30})/i;
+  const titleMatch = text.match(titlePattern);
+  if (titleMatch) {
+    const name = titleMatch[1].trim();
+    if (isValidName(name)) return cleanName(name);
+  }
+  
+  // Look for names at the beginning of the card (typically first 3 lines)
+  for (let i = 0; i < Math.min(3, lines.length); i++) {
+    const line = lines[i];
+    
+    // Enhanced pattern: supports initials, middle names, and common name patterns
+    const namePatterns = [
+      /^[A-Z][a-z]{1,}(\s+[A-Z]\.?\s*)*[A-Z][a-z]{1,}$/,  // First Last, First M. Last
+      /^[A-Z][a-z]{1,}\s+[A-Z][a-z]{1,}$/,                // Simple First Last
+      /^[A-Z]\.\s*[A-Z][a-z]{1,}\s+[A-Z][a-z]{1,}$/,       // F. Middle Last
+      /^[A-Z][a-z]{1,}\s+[A-Z]\.\s*[A-Z][a-z]{1,}$/        // First M. Last
+    ];
+    
+    if (namePatterns.some(pattern => pattern.test(line)) && isValidName(line)) {
+      return cleanName(line);
+    }
+  }
+  
+  // Look for capitalized words that could be names
+  const namePatterns = text.match(/\b[A-Z][a-z]{1,}(?:\s+[A-Z]\.?\s*)*[A-Z][a-z]{1,}\b/g) || [];
+  for (const pattern of namePatterns) {
+    if (isValidName(pattern)) return cleanName(pattern);
+  }
+  
+  return "";
+}
+
+function cleanName(name) {
+  return name.trim().replace(/\s+/g, ' ');
+}
+
+// ---------- Enhanced Company Processing ----------
+function deriveCompanyFromDomain(domain) {
+  if (!domain) return "";
+  
+  const clean = domain.replace(/^www\./, "").toLowerCase();
+  if (GENERIC_COMPANY_DOMAINS.includes(clean)) return "";
+  
+  const name = clean.split(".")[0];
+  // Capitalize first letter of each word
+  return name.split(/[-_]/).map(word => 
+    word.charAt(0).toUpperCase() + word.slice(1)
+  ).join(' ');
+}
+
+function preferBrandName(name) {
+  if (!name) return "";
+  
+  const words = name.split(/\s+/);
+  const legalTerms = /(pvt|private|ltd|llp|inc|llc|corp|company|enterprises|corporation)/i;
+  const hasLegal = legalTerms.test(name);
+  
+  if (hasLegal && words.length > 2) {
+    // Remove legal terms but keep meaningful words
+    return words.filter(w => !legalTerms.test(w)).join(" ").trim();
+  }
+  
+  return name;
+}
+
+function sanitizeCompany(name, websites, emails, logos) {
+  // Try provided name first
+  if (name && !BLOCKED_COMPANIES.includes(name.trim())) {
+    return preferBrandName(name);
+  }
+  
+  // Try logos
+  if (logos && logos.length > 0) {
+    const logo = logos[0];
+    if (!BLOCKED_COMPANIES.includes(logo)) {
+      return preferBrandName(logo);
+    }
+  }
+  
+  // Derive from email domain
+  const emailDomain = emails?.[0]?.split("@")[1];
+  if (emailDomain) {
+    const derived = deriveCompanyFromDomain(emailDomain);
+    if (derived) return derived;
+  }
+  
+  // Derive from website
+  const websiteDomain = websites?.[0]?.replace(/^https?:\/\//, "").split("/")[0];
+  if (websiteDomain) {
+    return deriveCompanyFromDomain(websiteDomain);
+  }
+  
+  return "";
+}
+
+// ---------- Enhanced Address Processing ----------
+function fallbackAddressFromText(text) {
+  if (!text) return "";
+  
+  const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+  
+  // Look for address indicators
+  const addressIndicators = [
+    /address/i, /addr/i, /location/i, /office/i,
+    /road|street|avenue|lane|drive|place|boulevard|rd|st|ave/i,
+    /area|sector|block|phase|tower|building|floor|apartment|apt/i,
+    /city|town|district|state|country/i,
+    /\d{5,6}/, // PIN codes
+    /plot|house|flat/i
+  ];
+  
+  const addressLines = [];
+  
+  lines.forEach(line => {
+    // Skip lines with emails, phones, or websites
+    if (/@/.test(line) || /https?:\/\//.test(line) || /www\./i.test(line)) return;
+    if (/\+?\d[\d\s\-()]{7,}\d/.test(line)) return;
+    
+    // Include lines with address indicators or lines with numbers (could be addresses)
+    if (addressIndicators.some(indicator => indicator.test(line)) || 
+        (/\d/.test(line) && line.length > 5 && !/^\d+$/.test(line))) {
+      addressLines.push(line);
+    }
+  });
+  
+  return addressLines.join(', ');
+}
+
+function cleanAddress(text) {
+  if (!text) return "";
+  
+  const lines = text.split(/[\n,]+/).map(l => l.trim()).filter(line =>
+    line &&
+    !/^\d{7,}$/.test(line) &&   // Just phone numbers
+    !/@/.test(line) &&          // emails
+    !/^https?:\/\//.test(line) && // websites
+    !/^www\./i.test(line) &&    // websites
+    line.length > 2
+  );
+  
+  return lines.join(', ');
+}
+
+// ---------- Enhanced OCR Processing ----------
+function preprocessText(text) {
+  if (!text) return "";
+  
+  // Fix common OCR errors
+  let cleaned = text
+    .replace(/[|]/g, 'I') // Common OCR mistake - pipe to I
+    .replace(/\s+/g, ' ') // Normalize whitespace
+    .replace(/[^\x20-\x7E\n\r]/g, '') // Remove non-ASCII characters except newlines
+    .trim();
+    
+  return cleaned;
+}
+
+async function processOCR(filePath) {
+  console.log("🔎 OCR: Processing file ->", filePath);
+  
+  try {
+    // Use both text detection and document text detection for better accuracy
+    const [textResult] = await visionClient.textDetection(filePath);
+    const [documentResult] = await visionClient.documentTextDetection(filePath);
+    
+    let text = "";
+    if (documentResult.fullTextAnnotation?.text) {
+      // Use document text detection for structured text
+      text = documentResult.fullTextAnnotation.text;
+    } else if (textResult.textAnnotations?.length > 0) {
+      // Fallback to regular text detection
+      text = textResult.textAnnotations[0].description;
+    }
+    
+    console.log("📝 Extracted Text:", text);
+    
+    const [logoResult] = await visionClient.logoDetection(filePath);
+    const logos = logoResult.logoAnnotations?.map(l => l.description) || [];
+    
+    // Clean and preprocess the text
+    const cleanedText = preprocessText(text);
+    
+    return {
+      filename: path.basename(filePath),
+      text: cleanedText,
+      originalText: text,
+      logos,
+      emails: extractEmails(cleanedText),
+      phones: extractPhones(cleanedText),
+      websites: extractWebsites(cleanedText),
+    };
+    
+  } catch (error) {
+    console.error("OCR processing error:", error);
+    throw error;
+  }
+}
+
+// ---------- Enhanced Batch Processing ----------
+async function processInBatches(items, batchSize, fn, ws, userId, stage) {
+  const results = [];
+  
+  for (let i = 0; i < items.length; i += batchSize) {
+    const batch = items.slice(i, i + batchSize);
+    
+    try {
+      const batchResults = await Promise.all(batch.map(fn));
+      results.push(...batchResults);
+    } catch (error) {
+      console.error(`Batch processing error at ${i}:`, error);
+      // Process individually on batch failure
+      for (const item of batch) {
+        try {
+          const result = await fn(item);
+          results.push(result);
+        } catch (itemError) {
+          console.error("Individual item processing failed:", itemError);
+        }
+      }
+    }
+    
+    const progress = Math.round(((i + batch.length) / items.length) * 100);
+    safeSend(ws, { 
+      type: "ocr-progress", 
+      userId, 
+      stage, 
+      done: i + batch.length, 
+      total: items.length, 
+      percent: progress 
+    });
+  }
+  
+  return results;
+}
+
+// ---------- Enhanced GPT Parsing with Better Website Extraction ----------
+async function parseCardsWithGPT(cards, ws, userId, batchSize = 5) {
+  console.log(`🤖 GPT: Parsing ${cards.length} cards in batches of ${batchSize}`);
+  
+  const batches = [];
+  for (let i = 0; i < cards.length; i += batchSize) {
+    batches.push(cards.slice(i, i + batchSize));
+  }
+
+  const results = await Promise.all(
+    batches.map(async (batch, batchIndex) => {
+      const offset = batchIndex * batchSize;
+      
+      const prompt = `You are an expert at parsing business card OCR text into structured JSON.
+Extract only relevant contact information with high accuracy.
+
+IMPORTANT: Pay special attention to extracting websites/URLs. Look for:
+- Standard URLs (http://example.com, https://example.com)
+- Domain names without protocol (example.com, company.co.in)
+- Domains mentioned after "website:", "web:", "www.", or similar
+- Company domains that might be embedded in the text
+- Domains from email addresses (if @company.com, then website could be company.com)
 
 Rules:
-- Always return valid JSON (no comments, no explanations).
-- If multiple phone numbers or emails exist, include them all in arrays.
-- If a field is not present, return "" or [].
-- Use OCR text, regex hints, and logos together to guess missing fields.
-- Normalize phone numbers into international format if possible.
-- Pay extra attention to extracting ALL phone numbers and ALL emails.
-`;
+1. Extract exactly ${batch.length} card objects in the "cards" array
+2. Person's full name (not company name) 
+3. Job title/designation only
+4. Company name (prefer brand name over legal entity)
+5. Clean phone numbers (remove extra formatting)
+6. Valid email addresses only
+7. **Company websites - be thorough in finding any domain names or URLs**
+8. Complete address if clearly present
+9. If information is unclear or missing, leave empty string rather than guessing
+10. Ignore promotional text, slogans, services descriptions
 
+${batch.map((card, idx) => `
+Card ${offset + idx + 1}:
+OCR Text: ${card.text}
+Pre-detected: 
+- Emails: ${card.emails?.join(', ') || 'None'}
+- Phones: ${card.phones?.join(', ') || 'None'}  
+- Pre-detected Websites: ${card.websites?.join(', ') || 'None'}
+- Logos: ${card.logos?.join(', ') || 'None'}
+
+LOOK CAREFULLY for any website/domain mentions in the OCR text above.
+`).join('')}
+
+Return valid JSON only:`;
+
+      try {
+        const response = await client.chat.completions.create({
+          model: "gpt-4o-mini",
+          messages: [{ role: "user", content: prompt }],
+          temperature: 0.1, // Lower temperature for consistency
+          response_format: {
+            type: "json_schema",
+            json_schema: {
+              name: "business_cards",
+              schema: {
+                type: "object",
+                properties: {
+                  cards: {
+                    type: "array",
+                    items: {
+                      type: "object",
+                      properties: {
+                        fullName: { type: "string" },
+                        jobTitle: { type: "string" },
+                        company: { type: "string" },
+                        phones: { type: "array", items: { type: "string" } },
+                        emails: { type: "array", items: { type: "string" } },
+                        websites: { type: "array", items: { type: "string" } },
+                        address: { type: "string" },
+                      },
+                      required: ["fullName","jobTitle","company","phones","emails","websites","address"],
+                    },
+                  },
+                },
+                required: ["cards"],
+              },
+            },
+          },
+        });
+
+        const parsed = JSON.parse(response.choices[0].message.content);
+        const gptCards = parsed.cards;
+        
+        if (gptCards.length !== batch.length) {
+          console.warn(`GPT returned ${gptCards.length} cards, expected ${batch.length}`);
+        }
+
+        return gptCards.map((r, i) => normalizeCard(r, batch[i], offset + i + 1));
+        
+      } catch (err) {
+        console.error(`GPT Error in batch ${batchIndex}:`, err.message);
+        
+        // Retry once with simpler prompt
+        try {
+          const simplePrompt = `Parse these business cards into JSON format. Extract: fullName, jobTitle, company, phones (array), emails (array), websites (array), address. Be thorough with website extraction.
+
+${batch.map((card, idx) => `Card ${idx + 1}: ${card.text}`).join('\n\n')}`;
+
+          const retryResponse = await client.chat.completions.create({
+            model: "gpt-4o-mini",
+            messages: [{ role: "user", content: simplePrompt }],
+            temperature: 0.2,
+          });
+          
+          const retryParsed = JSON.parse(retryResponse.choices[0].message.content);
+          const retryCards = retryParsed.cards || [retryParsed];
+          
+          return retryCards.map((r, i) => normalizeCard(r, batch[i], offset + i + 1));
+        } catch (retryErr) {
+          console.error("GPT retry failed:", retryErr);
+          return batch.map((c, i) => fallbackParse(c, offset + i + 1));
+        }
+      }
+    })
+  );
+
+  const flatResults = results.flat();
+  return mergeParsedCards(flatResults);
+}
+
+// ---------- Enhanced Normalization ----------
+function normalizeCard(r, fallback, index) {
+  // Enhanced name processing
+  let fullName = r.fullName || extractNameFromText(fallback.text);
+  if (JUNK_WORDS.some(w => fullName?.toLowerCase().includes(w))) {
+    fullName = extractNameFromText(fallback.text) || "N/A";
+  }
+
+  // Enhanced company processing
+  let company = sanitizeCompany(
+    r.company, 
+    ensureArray(r.websites || fallback.websites), 
+    ensureArray(r.emails || fallback.emails), 
+    fallback.logos
+  );
+
+  // Enhanced job title extraction
+  let jobTitle = r.jobTitle;
+  if (!jobTitle) {
+    const titleMatch = fallback.text.match(/(Director|Founder|Manager|CEO|CTO|Co[- ]?Founder|Partner|Proprietor|President|VP|Vice President|Executive)/i);
+    jobTitle = titleMatch ? titleMatch[0] : "";
+  }
+
+  // Merge websites from both GPT and pre-detection
+  const allWebsites = [
+    ...ensureArray(r.websites || []),
+    ...ensureArray(fallback.websites || [])
+  ];
+  const uniqueWebsites = [...new Set(allWebsites)]
+    .map(normalizeWebsite)
+    .filter(Boolean);
+
+  return {
+    cardId: uuidv4(),
+    fullName: cleanName(fullName),
+    jobTitle,
+    company,
+    phones: expandPhoneVariants(ensureArray(r.phones?.length ? r.phones : fallback.phones)),
+    emails: ensureArray(r.emails?.length ? r.emails : fallback.emails),
+    websites: uniqueWebsites,
+    address: cleanAddress(r.address || fallbackAddressFromText(fallback.text)),
+    gptSource: "gpt-schema",
+    confidence: 0, // Will be calculated later
+  };
+}
+
+function fallbackParse(c, index) {
+  const name = extractNameFromText(c.text);
+  const company = sanitizeCompany("", c.websites, c.emails, c.logos);
+  
+  return {
+    cardId: uuidv4(),
+    fullName: name,
+    jobTitle: c.text.match(/(Director|Founder|Manager|CEO|CTO|Co[- ]?Founder|Partner|Proprietor)/i)?.[0] || "",
+    company,
+    phones: expandPhoneVariants(ensureArray(c.phones)),
+    emails: ensureArray(c.emails),
+    websites: ensureArray(c.websites).map(normalizeWebsite).filter(Boolean),
+    address: cleanAddress(fallbackAddressFromText(c.text)),
+    gptSource: "fallback",
+    confidence: 0,
+  };
+}
+
+// ---------- Validation and Confidence Scoring ----------
+function validateAndScoreCard(card) {
+  let confidence = 0;
+  
+  const factors = {
+    hasValidName: (card.fullName && card.fullName !== "N/A" && card.fullName.length > 2) ? 25 : 0,
+    hasCompany: (card.company && card.company !== "N/A" && card.company.length > 1) ? 20 : 0,
+    hasValidEmail: (card.emails?.length > 0 && card.emails.some(e => e.includes('@'))) ? 20 : 0,
+    hasValidPhone: (card.phones?.length > 0 && card.phones.some(p => p.replace(/\D/g, '').length >= 7)) ? 15 : 0,
+    hasWebsite: (card.websites?.length > 0 && card.websites.some(w => w.startsWith('http'))) ? 10 : 0,
+    hasAddress: (card.address && card.address.length > 10) ? 10 : 0
+  };
+  
+  confidence = Object.values(factors).reduce((sum, val) => sum + val, 0);
+  
+  return {
+    ...card,
+    confidence,
+    isValid: confidence >= 40, // Minimum threshold for valid card
+    validationFactors: factors
+  };
+}
+
+// ---------- Main Controller ----------
+async function processBusinessCardWS(req, res) {
   try {
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: input }
-      ],
-      response_format: { type: "json_object" },
+    const { userId, mode } = req.body;
+    console.log(`📥 Received upload from user ${userId}, Mode: ${mode}`);
+    
+    if (!userId) return res.status(400).json({ error: "userId is required" });
+
+    const ws = global.wssClients?.[userId];
+    if (!ws) return res.status(400).json({ error: "No active WebSocket connection" });
+
+    let pairedCards = [];
+
+    if (mode === "single") {
+      const front = req.files["frontImage"]?.[0];
+      const back = req.files["backImage"]?.[0];
+      
+      if (!front) return res.status(400).json({ error: "Front image is required in single mode" });
+
+      try {
+        const frontOCR = await processOCR(front.path);
+        fs.unlinkSync(front.path);
+        
+        if (back) {
+          const backOCR = await processOCR(back.path);
+          fs.unlinkSync(back.path);
+          console.log(`🔗 Forced merge (single mode): ${front.filename} + ${back.filename}`);
+          pairedCards = [mergeCards(frontOCR, backOCR)];
+        } else {
+          pairedCards = [frontOCR];
+        }
+      } catch (ocrError) {
+        console.error("OCR Error in single mode:", ocrError);
+        return res.status(500).json({ error: "OCR processing failed" });
+      }
+      
+      safeSend(ws, { 
+        type: "ocr-progress", 
+        userId, 
+        stage: "Pairing", 
+        done: pairedCards.length, 
+        total: pairedCards.length, 
+        percent: 100 
+      });
+      
+    } else if (mode === "bulk") {
+      const bulkFiles = req.files["files"] || [];
+      if (bulkFiles.length === 0) {
+        return res.status(400).json({ error: "No files uploaded for bulk mode" });
+      }
+
+      const ocrResults = await processInBatches(
+        bulkFiles,
+        8, // Reduced batch size for better reliability
+        async (file) => {
+          try {
+            const result = await processOCR(file.path);
+            fs.unlinkSync(file.path);
+            return result;
+          } catch (error) {
+            console.error(`OCR failed for ${file.filename}:`, error);
+            fs.unlinkSync(file.path);
+            return null;
+          }
+        },
+        ws,
+        userId,
+        "OCR"
+      );
+
+      // Filter out failed OCR results
+      const validOCRResults = ocrResults.filter(Boolean);
+      
+      pairedCards = pairCards(validOCRResults);
+      console.log(`📑 Bulk mode: ${bulkFiles.length} files → ${validOCRResults.length} OCR results → ${pairedCards.length} merged cards`);
+      
+      safeSend(ws, { 
+        type: "ocr-progress", 
+        userId, 
+        stage: "Pairing", 
+        done: pairedCards.length, 
+        total: pairedCards.length, 
+        percent: 100 
+      });
+      
+    } else {
+      return res.status(400).json({ error: "Invalid mode. Use 'single' or 'bulk'" });
+    }
+
+    // GPT PARSING + MERGING
+    safeSend(ws, { type: "ocr-progress", userId, stage: "AI Processing", done: 0, total: pairedCards.length, percent: 0 });
+    
+    const finalParsed = await parseCardsWithGPT(pairedCards, ws, userId, 5);
+    
+    // Add metadata and validate
+    const validatedCards = finalParsed.map(card => {
+      const validated = validateAndScoreCard({
+        ...card,
+        sourceMode: mode,
+        cardId: card.cardId || uuidv4(),
+        processedAt: new Date().toISOString()
+      });
+      return validated;
+    }).filter(card => card.isValid); // Only return valid cards
+
+    // COMPLETE
+    console.log("📊 Final Parsed & Validated Results:");
+    console.log(`   Total Valid Contacts: ${validatedCards.length}`);
+    console.log(`   Average Confidence: ${(validatedCards.reduce((sum, card) => sum + card.confidence, 0) / validatedCards.length).toFixed(1)}%`);
+    
+    validatedCards.forEach((card, idx) => {
+      console.log(`   #${idx + 1}: ${card.fullName || "N/A"} | ${card.company || "N/A"} | Confidence: ${card.confidence}% | Websites: ${card.websites?.length || 0}`);
     });
 
-    const jsonString = response.choices?.[0]?.message?.content || "{}";
-    console.log("📌 GPT Raw Response:", jsonString);
-
-    return JSON.parse(jsonString);
+    safeSend(ws, { 
+      type: "ocr-complete", 
+      userId, 
+      data: validatedCards,
+      summary: {
+        totalProcessed: pairedCards.length,
+        validCards: validatedCards.length,
+        averageConfidence: Math.round(validatedCards.reduce((sum, card) => sum + card.confidence, 0) / validatedCards.length) || 0
+      }
+    });
+    
+    return res.json({ 
+      success: true, 
+      message: "Processing completed successfully", 
+      mode,
+      totalCards: validatedCards.length,
+      averageConfidence: Math.round(validatedCards.reduce((sum, card) => sum + card.confidence, 0) / validatedCards.length) || 0
+    });
+    
   } catch (err) {
-    console.error("❌ GPT parsing error:", err);
-    return {
-      fullName: "",
-      title: "",
-      company: "",
-      phoneNumbers: [],
-      emails: [],
-      website: "",
-      address: "",
-    };
+    console.error("❌ OCR WS Error:", err);
+    const ws = global.wssClients?.[req.body?.userId];
+    if (ws) {
+      safeSend(ws, { 
+        type: "ocr-error", 
+        userId: req.body?.userId, 
+        error: "Processing failed. Please try again." 
+      });
+    }
+    return res.status(500).json({ error: "OCR processing failed", details: err.message });
   }
 }
 
-exports.processBusinessCard = async (req, res) => {
-  try {
-    const results = [];
-
-    for (const file of req.files) {
-      console.log(`📂 Processing file: ${file.originalname}`);
-
-      // Vision API OCR
-      const [textResult] = await client.textDetection(file.path);
-      const [logoResult] = await client.logoDetection(file.path);
-
-      const rawText = textResult.textAnnotations.map(t => t.description).join("\n");
-      const logos = logoResult.logoAnnotations.map(l => l.description);
-
-      console.log("✅ Vision OCR done for:", file.originalname);
-
-      // Parse with GPT-4o-mini
-      const parsed = await parseWithGPT4o(rawText, logos);
-
-      results.push({
-        filename: file.originalname,
-        ...parsed,
-        logos,
-        rawText,
-      });
-
-      // cleanup temp files
-      fs.unlink(file.path, () => {});
-    }
-
-    res.json({ success: true, data: results });
-  } catch (err) {
-    console.error("❌ OCR/Parsing failed:", err);
-    res.status(500).json({ success: false, message: "Processing failed", error: err.message });
-  }
+module.exports = { 
+  processBusinessCardWS,
+  // Export helper functions for testing
+  extractEmails,
+  extractPhones,
+  extractWebsites,
+  extractNameFromText,
+  validateAndScoreCard
 };
