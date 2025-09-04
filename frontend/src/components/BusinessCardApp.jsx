@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  Upload,
+  CloudUpload,
   Download,
   QrCode,
   User,
@@ -42,12 +42,13 @@ const BusinessCardApp = () => {
     company: true,
     phones: true,
     emails: true,
-    website: true,
+    websites: true,
     address: true,
   });
   const [ws, setWs] = useState(null);
   const [qrModalOpen, setQrModalOpen] = useState(false);
   const [qrData, setQrData] = useState("");
+  const [qrMode, setQrMode] = useState("single"); // "single" or "bulk"
   const [userId] = useState("abc123"); // In real app, this would come from auth
 
   // Refs
@@ -80,7 +81,12 @@ const BusinessCardApp = () => {
           break;
         case "ocr-complete":
           // backend sends { data }, not { contacts }
-          setProcessedContacts(data.data || []);
+          // Add sourceMode to each contact based on current mode
+          const contactsWithMode = (data.data || []).map((contact) => ({
+            ...contact,
+            sourceMode: mode,
+          }));
+          setProcessedContacts(contactsWithMode);
           setIsProcessing(false);
           setProgress(100);
           break;
@@ -281,19 +287,51 @@ const BusinessCardApp = () => {
     }
   };
 
-  const generateQR = async (contact) => {
+  const exportXLSX = async () => {
     try {
+      const response = await fetch("http://localhost:5000/api/export/xlsx", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          contacts: processedContacts,
+          fields: selectedFields,
+        }),
+      });
+
+      if (response.ok) {
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "contacts.xlsx";
+        a.click();
+        window.URL.revokeObjectURL(url);
+      }
+    } catch (error) {
+      console.error("Error exporting XLSX:", error);
+    }
+  };
+
+  const generateQR = async (contact, isBulk = false) => {
+    try {
+      const requestBody = isBulk
+        ? { contacts: processedContacts }
+        : { contact };
+
       const response = await fetch("http://localhost:5000/api/export/qr", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ contact }),
+        body: JSON.stringify(requestBody),
       });
 
       if (response.ok) {
         const data = await response.json();
         setQrData(data.qrData || "");
+        setQrMode(isBulk ? "bulk" : "single");
         setQrModalOpen(true);
       }
     } catch (error) {
@@ -306,6 +344,16 @@ const BusinessCardApp = () => {
     const updatedContacts = [...processedContacts];
     updatedContacts[index] = { ...updatedContacts[index], [field]: value };
     setProcessedContacts(updatedContacts);
+  };
+
+  // Clear processed contacts when switching modes
+  const handleModeChange = (newMode) => {
+    if (newMode !== mode) {
+      setProcessedContacts([]);
+      setProgress(0);
+      setIsProcessing(false);
+    }
+    setMode(newMode);
   };
 
   const addPhone = (contactIndex) => {
@@ -347,11 +395,25 @@ const BusinessCardApp = () => {
           animate={{ opacity: 1, y: 0 }}
           className="text-center mb-12"
         >
-          <h1 className="text-5xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent mb-4">
+          <h1
+            className="text-5xl font-bold bg-gradient-to-r from-blue-700 via-blue-500 to-cyan-400 bg-clip-text text-transparent mb-2 pb-4"
+            style={{ backgroundClip: "text", WebkitBackgroundClip: "text" }}
+          >
             Business Card Analyzer
           </h1>
           <p className="text-xl text-slate-600">
             Extract and manage contact information with AI-powered OCR
+          </p>
+          <p className="text-sm text-slate-500 mt-2">
+            Powered by{" "}
+            <a
+              href="https://troikatech.in/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-blue-600 hover:text-blue-700 font-semibold decoration-2 underline-offset-2 transition-colors"
+            >
+              Troika Tech
+            </a>
           </p>
         </motion.div>
 
@@ -365,7 +427,7 @@ const BusinessCardApp = () => {
             <div className="relative bg-slate-200 rounded-full p-1 shadow-inner">
               {/* Moving gradient indicator */}
               <motion.div
-                className="absolute inset-y-1 w-1/2 rounded-full bg-gradient-to-r from-blue-500 to-indigo-500 shadow-lg"
+                className="absolute inset-y-1 w-1/2 rounded-full bg-gradient-to-r from-blue-700 via-blue-500 to-cyan-400 shadow-lg"
                 animate={{
                   left: mode === "single" ? "0.25rem" : "50%",
                 }}
@@ -375,7 +437,7 @@ const BusinessCardApp = () => {
               {/* Radio buttons */}
               <RadioGroup
                 value={mode}
-                onValueChange={setMode}
+                onValueChange={handleModeChange}
                 className="relative z-10 grid grid-cols-2"
               >
                 <RadioGroupItem
@@ -454,7 +516,7 @@ const BusinessCardApp = () => {
                         </div>
                       ) : (
                         <div className="space-y-2">
-                          <Upload className="w-8 h-8 text-slate-400 mx-auto" />
+                          <CloudUpload className="w-8 h-8 text-slate-400 mx-auto" />
                           <p className="text-slate-600">
                             Drop front image here or click to select
                           </p>
@@ -494,7 +556,7 @@ const BusinessCardApp = () => {
                         </div>
                       ) : (
                         <div className="space-y-2">
-                          <Upload className="w-8 h-8 text-slate-400 mx-auto" />
+                          <CloudUpload className="w-8 h-8 text-slate-400 mx-auto" />
                           <p className="text-slate-600">
                             Drop back image here or click to select
                           </p>
@@ -518,7 +580,7 @@ const BusinessCardApp = () => {
                 <Button
                   onClick={processSingleCard}
                   disabled={!frontImage || isProcessing}
-                  className="w-full"
+                  className="w-full bg-gradient-to-r from-blue-700 via-blue-500 to-cyan-400 hover:from-blue-800 hover:via-blue-600 hover:to-cyan-500 text-white border-0 shadow-lg"
                 >
                   {isProcessing ? (
                     <>
@@ -534,180 +596,204 @@ const BusinessCardApp = () => {
                 </Button>
               </div>
 
-              {/* Processed Contact Form */}
+              {/* Processed Contact Form - Only for Single Mode */}
               {processedContacts.length > 0 && (
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="bg-white border border-slate-200 rounded-2xl p-8 shadow-lg"
-                >
-                  <h2 className="text-2xl font-semibold text-slate-900 mb-6">
-                    Edit Contact Information
-                  </h2>
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="bg-white border border-slate-200 rounded-2xl p-8 shadow-lg"
+                  >
+                    <h2 className="text-2xl font-semibold text-slate-900 mb-6">
+                      Edit Contact Information
+                    </h2>
 
-                  {processedContacts.map((contact, index) => (
-                    <div key={index} className="space-y-6">
-                      {/* Source Mode Label */}
-                      {contact.sourceMode && (
-                        <div className="flex items-center gap-2 mb-4">
-                          <span className="text-xs font-medium text-slate-500 uppercase tracking-wide">
-                            Source:
-                          </span>
-                          <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-                            contact.sourceMode === "single" 
-                              ? "bg-blue-100 text-blue-700" 
-                              : "bg-green-100 text-green-700"
-                          }`}>
-                            {contact.sourceMode === "single" ? "Single Card" : "Bulk Upload"}
-                          </span>
+                    {processedContacts.map((contact, index) => (
+                      <div key={index} className="space-y-6">
+                        {/* Source Mode Label */}
+                        {contact.sourceMode && (
+                          <div className="flex items-center gap-2 mb-4">
+                            <span className="text-xs font-medium text-slate-500 uppercase tracking-wide">
+                              Source:
+                            </span>
+                            <span
+                              className={`px-2 py-1 text-xs font-medium rounded-full ${
+                                contact.sourceMode === "single"
+                                  ? "bg-blue-100 text-blue-700"
+                                  : "bg-green-100 text-green-700"
+                              }`}
+                            >
+                              {contact.sourceMode === "single"
+                                ? "Single Card"
+                                : "Bulk Upload"}
+                            </span>
+                          </div>
+                        )}
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-slate-700 mb-2 font-medium">
+                              Full Name
+                            </label>
+                            <Input
+                              value={contact.fullName || ""}
+                              onChange={(e) =>
+                                updateContact(index, "fullName", e.target.value)
+                              }
+                              placeholder="Enter full name"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-slate-700 mb-2 font-medium">
+                              Job Title
+                            </label>
+                            <Input
+                              value={contact.jobTitle || ""}
+                              onChange={(e) =>
+                                updateContact(index, "jobTitle", e.target.value)
+                              }
+                              placeholder="Enter job title"
+                            />
+                          </div>
                         </div>
-                      )}
 
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                           <label className="block text-slate-700 mb-2 font-medium">
-                            Full Name
+                            Company
                           </label>
                           <Input
-                            value={contact.fullName || ""}
+                            value={contact.company || ""}
                             onChange={(e) =>
-                              updateContact(index, "fullName", e.target.value)
+                              updateContact(index, "company", e.target.value)
                             }
-                            placeholder="Enter full name"
+                            placeholder="Enter company name"
                           />
                         </div>
+
                         <div>
                           <label className="block text-slate-700 mb-2 font-medium">
-                            Job Title
+                            Phone Numbers
+                          </label>
+                          <div className="space-y-2">
+                            {(contact.phones || [""]).map(
+                              (phone, phoneIndex) => (
+                                <div key={phoneIndex} className="flex gap-2">
+                                  <Input
+                                    value={phone}
+                                    onChange={(e) =>
+                                      updatePhone(
+                                        index,
+                                        phoneIndex,
+                                        e.target.value
+                                      )
+                                    }
+                                    placeholder="Enter phone number"
+                                  />
+                                  {phoneIndex ===
+                                    (contact.phones || [""]).length - 1 && (
+                                    <Button
+                                      variant="outline"
+                                      size="icon"
+                                      onClick={() => addPhone(index)}
+                                    >
+                                      <Phone className="w-4 h-4" />
+                                    </Button>
+                                  )}
+                                </div>
+                              )
+                            )}
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="block text-slate-700 mb-2 font-medium">
+                            Email Addresses
+                          </label>
+                          <div className="space-y-2">
+                            {(contact.emails || [""]).map(
+                              (email, emailIndex) => (
+                                <div key={emailIndex} className="flex gap-2">
+                                  <Input
+                                    value={email}
+                                    onChange={(e) =>
+                                      updateEmail(
+                                        index,
+                                        emailIndex,
+                                        e.target.value
+                                      )
+                                    }
+                                    placeholder="Enter email address"
+                                  />
+                                  {emailIndex ===
+                                    (contact.emails || [""]).length - 1 && (
+                                    <Button
+                                      variant="outline"
+                                      size="icon"
+                                      onClick={() => addEmail(index)}
+                                    >
+                                      <Mail className="w-4 h-4" />
+                                    </Button>
+                                  )}
+                                </div>
+                              )
+                            )}
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="block text-slate-700 mb-2 font-medium">
+                            Websites
                           </label>
                           <Input
-                            value={contact.jobTitle || ""}
-                            onChange={(e) =>
-                              updateContact(index, "jobTitle", e.target.value)
+                            value={
+                              contact.websites ||
+                              (Array.isArray(contact.websites)
+                                ? contact.websites[0]
+                                : "") ||
+                              ""
                             }
-                            placeholder="Enter job title"
+                            onChange={(e) =>
+                              updateContact(index, "websites", e.target.value)
+                            }
+                            placeholder="Enter website URL"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-slate-700 mb-2 font-medium">
+                            Address
+                          </label>
+                          <Input
+                            value={contact.address || ""}
+                            onChange={(e) =>
+                              updateContact(index, "address", e.target.value)
+                            }
+                            placeholder="Enter address"
                           />
                         </div>
                       </div>
+                    ))}
 
-                      <div>
-                        <label className="block text-slate-700 mb-2 font-medium">
-                          Company
-                        </label>
-                        <Input
-                          value={contact.company || ""}
-                          onChange={(e) =>
-                            updateContact(index, "company", e.target.value)
-                          }
-                          placeholder="Enter company name"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-slate-700 mb-2 font-medium">
-                          Phone Numbers
-                        </label>
-                        <div className="space-y-2">
-                          {(contact.phones || [""]).map((phone, phoneIndex) => (
-                            <div key={phoneIndex} className="flex gap-2">
-                              <Input
-                                value={phone}
-                                onChange={(e) =>
-                                  updatePhone(index, phoneIndex, e.target.value)
-                                }
-                                placeholder="Enter phone number"
-                              />
-                              {phoneIndex ===
-                                (contact.phones || [""]).length - 1 && (
-                                <Button
-                                  variant="outline"
-                                  size="icon"
-                                  onClick={() => addPhone(index)}
-                                >
-                                  <Phone className="w-4 h-4" />
-                                </Button>
-                              )}
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-
-                      <div>
-                        <label className="block text-slate-700 mb-2 font-medium">
-                          Email Addresses
-                        </label>
-                        <div className="space-y-2">
-                          {(contact.emails || [""]).map((email, emailIndex) => (
-                            <div key={emailIndex} className="flex gap-2">
-                              <Input
-                                value={email}
-                                onChange={(e) =>
-                                  updateEmail(index, emailIndex, e.target.value)
-                                }
-                                placeholder="Enter email address"
-                              />
-                              {emailIndex ===
-                                (contact.emails || [""]).length - 1 && (
-                                <Button
-                                  variant="outline"
-                                  size="icon"
-                                  onClick={() => addEmail(index)}
-                                >
-                                  <Mail className="w-4 h-4" />
-                                </Button>
-                              )}
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-
-                      <div>
-                        <label className="block text-slate-700 mb-2 font-medium">
-                          Website
-                        </label>
-                        <Input
-                          value={contact.website || (Array.isArray(contact.website) ? contact.website[0] : "") || ""}
-                          onChange={(e) =>
-                            updateContact(index, "website", e.target.value)
-                          }
-                          placeholder="Enter website URL"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-slate-700 mb-2 font-medium">
-                          Address
-                        </label>
-                        <Input
-                          value={contact.address || ""}
-                          onChange={(e) =>
-                            updateContact(index, "address", e.target.value)
-                          }
-                          placeholder="Enter address"
-                        />
-                      </div>
-                    </div>
-                  ))}
-
-                  {/* Export Buttons */}
-                  <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <Button
+                    {/* Export Buttons */}
+                    <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-4">
+                                          <Button
                       onClick={() => exportVCF(processedContacts[0])}
-                      className="w-full"
+                      className="w-full bg-gradient-to-r from-blue-700 via-blue-500 to-cyan-400 hover:from-blue-800 hover:via-blue-600 hover:to-cyan-500 text-white border-0 shadow-lg"
                     >
-                      <Download className="w-4 h-4 mr-2" />
-                      Download VCF
-                    </Button>
-                    <Button
-                      onClick={() => generateQR(processedContacts[0])}
-                      className="w-full"
+                        <Download className="w-4 h-4 mr-2" />
+                        Download VCF
+                      </Button>
+                                          <Button
+                      onClick={() => generateQR(processedContacts[0], false)}
+                      className="w-full bg-gradient-to-r from-blue-700 via-blue-500 to-cyan-400 hover:from-blue-800 hover:via-blue-600 hover:to-cyan-500 text-white border-0 shadow-lg"
                     >
-                      <QrCode className="w-4 h-4 mr-2" />
-                      Scan QR
-                    </Button>
-                  </div>
-                </motion.div>
-              )}
+                        <QrCode className="w-4 h-4 mr-2" />
+                        Scan QR
+                      </Button>
+                    </div>
+                  </motion.div>
+                )}
+
+
             </motion.div>
           ) : (
             <motion.div
@@ -751,7 +837,7 @@ const BusinessCardApp = () => {
                     </div>
                   ) : (
                     <div className="space-y-4">
-                      <Upload className="w-12 h-12 text-slate-400 mx-auto" />
+                      <CloudUpload className="w-12 h-12 text-slate-400 mx-auto" />
                       <p className="text-slate-600 text-lg">
                         Drop multiple images here or click to select
                       </p>
@@ -773,7 +859,7 @@ const BusinessCardApp = () => {
                 <Button
                   onClick={processBulkCards}
                   disabled={bulkImages.length === 0 || isProcessing}
-                  className="w-full mt-6"
+                  className="w-full mt-6 bg-gradient-to-r from-blue-700 via-blue-500 to-cyan-400 hover:from-blue-800 hover:via-blue-600 hover:to-cyan-500 text-white border-0 shadow-lg"
                 >
                   {isProcessing ? (
                     <>
@@ -789,87 +875,129 @@ const BusinessCardApp = () => {
                 </Button>
               </div>
 
-              {/* Field Selection */}
+              {/* Field Selection - Only for Bulk Mode */}
               {processedContacts.length > 0 && (
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="bg-white border border-slate-200 rounded-2xl p-8 shadow-lg"
-                >
-                  <h2 className="text-2xl font-semibold text-slate-900 mb-6">
-                    Select Fields to Export
-                  </h2>
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="bg-white border border-slate-200 rounded-2xl p-8 shadow-lg"
+                  >
+                    <h2 className="text-2xl font-semibold text-slate-900 mb-6">
+                      Select Fields to Export
+                    </h2>
 
-                  {/* Source Mode Summary */}
-                  <div className="mb-6 p-4 bg-slate-50 rounded-lg">
-                    <div className="flex items-center gap-2 mb-2">
-                      <span className="text-sm font-medium text-slate-700">Processing Summary:</span>
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                      {processedContacts.map((contact, index) => (
-                        contact.sourceMode && (
-                          <span key={index} className={`px-2 py-1 text-xs font-medium rounded-full ${
-                            contact.sourceMode === "single" 
-                              ? "bg-blue-100 text-blue-700" 
-                              : "bg-green-100 text-green-700"
-                          }`}>
-                            Card {index + 1}: {contact.sourceMode === "single" ? "Single" : "Bulk"}
-                          </span>
-                        )
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-                    {Object.entries(selectedFields).map(([field, checked]) => (
-                      <label
-                        key={field}
-                        className="flex items-center space-x-3 cursor-pointer"
-                      >
-                        <Checkbox
-                          checked={checked}
-                          onCheckedChange={(checked) =>
-                            setSelectedFields((prev) => ({
-                              ...prev,
-                              [field]: checked,
-                            }))
-                          }
-                        />
-                        <span className="text-slate-700 capitalize font-medium">
-                          {field === "fullName"
-                            ? "Full Name"
-                            : field === "jobTitle"
-                            ? "Job Title"
-                            : field === "phones"
-                            ? "Phone Numbers"
-                            : field === "emails"
-                            ? "Email Addresses"
-                            : field}
+                    {/* Source Mode Summary */}
+                    <div className="mb-6 p-4 bg-slate-50 rounded-lg">
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="text-sm font-medium text-slate-700">
+                          Processing Summary:
                         </span>
-                      </label>
-                    ))}
-                  </div>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {processedContacts.map(
+                          (contact, index) =>
+                            contact.sourceMode && (
+                              <span
+                                key={index}
+                                className={`px-2 py-1 text-xs font-medium rounded-full ${
+                                  contact.sourceMode === "single"
+                                    ? "bg-blue-100 text-blue-700"
+                                    : "bg-green-100 text-green-700"
+                                }`}
+                              >
+                                Card {index + 1}:{" "}
+                                {contact.sourceMode === "single"
+                                  ? "Single"
+                                  : "Bulk"}
+                              </span>
+                            )
+                        )}
+                      </div>
+                    </div>
 
-                  {/* Export Buttons */}
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <Button onClick={exportCSV} className="w-full">
-                      <Download className="w-4 h-4 mr-2" />
-                      Download CSV
-                    </Button>
-                    <Button onClick={exportBulkVCF} className="w-full">
-                      <Download className="w-4 h-4 mr-2" />
-                      Download VCF
-                    </Button>
-                    <Button
-                      onClick={() => generateQR(processedContacts[0])}
-                      className="w-full"
-                    >
-                      <QrCode className="w-4 h-4 mr-2" />
-                      Scan QR
-                    </Button>
-                  </div>
-                </motion.div>
-              )}
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+                      {Object.entries(selectedFields).map(
+                        ([field, checked]) => (
+                          <label
+                            key={field}
+                            className="flex items-center space-x-3 cursor-pointer"
+                          >
+                            <Checkbox
+                              checked={checked}
+                              onCheckedChange={(checked) =>
+                                setSelectedFields((prev) => ({
+                                  ...prev,
+                                  [field]: checked,
+                                }))
+                              }
+                            />
+                            <span className="text-slate-700 capitalize font-medium">
+                              {field === "fullName"
+                                ? "Full Name"
+                                : field === "jobTitle"
+                                ? "Job Title"
+                                : field === "phones"
+                                ? "Phone Numbers"
+                                : field === "emails"
+                                ? "Email Addresses"
+                                : field === "websites"
+                                ? "Websites"
+                                : field}
+                            </span>
+                          </label>
+                        )
+                      )}
+                    </div>
+
+                    {/* Export Buttons */}
+                    <div className="space-y-6">
+                      {/* Spreadsheet Export Section */}
+                      <div>
+                        <h3 className="text-lg font-semibold text-slate-800 mb-4">
+                          Spreadsheet Export
+                        </h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <Button
+                            onClick={exportXLSX}
+                            className="w-full bg-green-600 hover:bg-green-700"
+                          >
+                            <Download className="w-4 h-4 mr-2" />
+                            Download XLSX{" "}
+                            <span className="text-xs ml-1">(Recommended)</span>
+                          </Button>
+                                                     <Button onClick={exportCSV} className="w-full bg-gradient-to-r from-blue-700 via-blue-500 to-cyan-400 hover:from-blue-800 hover:via-blue-600 hover:to-cyan-500 text-white border-0 shadow-lg">
+                            <Download className="w-4 h-4 mr-2" />
+                            Download CSV
+                          </Button>
+                        </div>
+                      </div>
+
+                      {/* Contact Export Section */}
+                      <div>
+                        <h3 className="text-lg font-semibold text-slate-800 mb-4">
+                          Contact Export
+                        </h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <Button onClick={exportBulkVCF} className="w-full bg-gradient-to-r from-blue-700 via-blue-500 to-cyan-400 hover:from-blue-800 hover:via-blue-600 hover:to-cyan-500 text-white border-0 shadow-lg">
+                            <Download className="w-4 h-4 mr-2" />
+                            Download VCF
+                          </Button>
+                          <Button
+                            onClick={() =>
+                              generateQR(processedContacts[0], true)
+                            }
+                            className="w-full bg-gradient-to-r from-blue-700 via-blue-500 to-cyan-400 hover:from-blue-800 hover:via-blue-600 hover:to-cyan-500 text-white border-0 shadow-lg"
+                          >
+                            <QrCode className="w-4 h-4 mr-2" />
+                            Scan QR
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+
+
             </motion.div>
           )}
         </AnimatePresence>
@@ -879,17 +1007,45 @@ const BusinessCardApp = () => {
       <Dialog open={qrModalOpen} onOpenChange={setQrModalOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>QR Code</DialogTitle>
+            <DialogTitle>
+              {qrMode === "bulk" ? "Bulk Contacts QR Code" : "Contact QR Code"}
+            </DialogTitle>
           </DialogHeader>
-          <div className="text-center">
+          <div className="text-center space-y-4">
             {qrData ? (
-              <div className="bg-white p-4 rounded-lg">
-                <img
-                  src={qrData}
-                  alt="QR Code"
-                  className="w-full h-auto mx-auto"
-                />
-              </div>
+              <>
+                <div className="bg-white p-4 rounded-lg">
+                  <img
+                    src={qrData}
+                    alt="QR Code"
+                    className="w-full h-auto mx-auto"
+                  />
+                </div>
+
+                {/* Instructions based on mode */}
+                {qrMode === "bulk" ? (
+                  <div className="space-y-3">
+                    <p className="text-sm text-slate-600">
+                      📱 Scan this QR code with your phone's camera or contact
+                      app
+                    </p>
+                    <p className="text-xs text-amber-600 bg-amber-50 p-2 rounded">
+                      ⚠️ Note: Some phones may only save the first contact when
+                      scanning bulk QR codes
+                    </p>
+                    <Button
+                      onClick={exportBulkVCF}
+                      className="w-full bg-green-600 hover:bg-green-700"
+                    >
+                      📥 Download All Contacts (Recommended for bulk)
+                    </Button>
+                  </div>
+                ) : (
+                  <p className="text-sm text-slate-600">
+                    📱 Scan this QR code to save this contact
+                  </p>
+                )}
+              </>
             ) : (
               <div className="text-slate-500 py-8">
                 <QrCode className="w-16 h-16 mx-auto mb-4 text-slate-300" />
