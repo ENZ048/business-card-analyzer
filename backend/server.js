@@ -4,7 +4,6 @@ const http = require("http");
 const cors = require("cors");
 const cookieParser = require("cookie-parser");
 
-const { wss } = require("./wsServer");
 const ocrRoutes = require("./routes/ocrRoutes");
 const exportRoutes = require("./routes/exportRoutes");
 
@@ -25,19 +24,6 @@ app.get("/", (req, res) => {
   res.send("✅ Business Card OCR Backend Running");
 });
 
-// ---------- WebSocket Upgrade ----------
-server.on("upgrade", (req, socket, head) => {
-  // You can authenticate user here via JWT, cookies, or query param
-  const userId = new URL(req.url, `http://${req.headers.host}`).searchParams.get("userId");
-  if (!userId) {
-    socket.destroy();
-    return;
-  }
-
-  wss.handleUpgrade(req, socket, head, (ws) => {
-    wss.emit("connection", ws, req, userId);
-  });
-});
 
 // ---------- Start Server ----------
 const PORT = process.env.PORT || 5000;

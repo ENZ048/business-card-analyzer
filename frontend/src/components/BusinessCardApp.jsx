@@ -34,7 +34,6 @@ const BusinessCardApp = () => {
   const [backImage, setBackImage] = useState(null);
   const [bulkImages, setBulkImages] = useState([]);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [progress, setProgress] = useState(0);
   const [processedContacts, setProcessedContacts] = useState([]);
   const [selectedFields, setSelectedFields] = useState({
     fullName: true,
@@ -45,7 +44,6 @@ const BusinessCardApp = () => {
     websites: true,
     address: true,
   });
-  const [ws, setWs] = useState(null);
   const [qrModalOpen, setQrModalOpen] = useState(false);
   const [qrData, setQrData] = useState("");
   const [qrMode, setQrMode] = useState("single"); // "single" or "bulk"
@@ -56,58 +54,6 @@ const BusinessCardApp = () => {
   const backFileInputRef = useRef(null);
   const bulkFileInputRef = useRef(null);
 
-  // WebSocket connection
-  useEffect(() => {
-    const websocket = new WebSocket(`ws://localhost:5000?userId=${userId}`);
-
-    websocket.onopen = () => {
-      console.log("WebSocket connected");
-      setWs(websocket);
-    };
-
-    websocket.onmessage = (event) => {
-      const data = JSON.parse(event.data);
-      console.log("🔔 WS message:", data); // add debug log
-
-      switch (data.type) {
-        case "ocr-progress":
-          // backend sends { percent }, not { progress }
-          setProgress(data.percent);
-          break;
-        case "ocr-error":
-          // backend sends { message }, not { error }
-          console.error("OCR Error:", data.message);
-          setIsProcessing(false);
-          break;
-        case "ocr-complete":
-          // backend sends { data }, not { contacts }
-          // Add sourceMode to each contact based on current mode
-          const contactsWithMode = (data.data || []).map((contact) => ({
-            ...contact,
-            sourceMode: mode,
-          }));
-          setProcessedContacts(contactsWithMode);
-          setIsProcessing(false);
-          setProgress(100);
-          break;
-        default:
-          break;
-      }
-    };
-
-    websocket.onerror = (error) => {
-      console.error("WebSocket error:", error);
-    };
-
-    websocket.onclose = () => {
-      console.log("WebSocket disconnected");
-      setWs(null);
-    };
-
-    return () => {
-      websocket.close();
-    };
-  }, [userId]);
 
   // File handling functions
   const handleFileSelect = (files, isBulk = false) => {
@@ -139,7 +85,6 @@ const BusinessCardApp = () => {
     if (!frontImage) return;
 
     setIsProcessing(true);
-    setProgress(0);
 
     const formData = new FormData();
     formData.append("userId", userId);
@@ -165,7 +110,21 @@ const BusinessCardApp = () => {
         throw new Error("OCR processing failed");
       }
 
-      // Progress will be handled by WebSocket
+      const result = await response.json();
+      console.log("📋 Processed contacts:", result.data);
+      
+      // Add sourceMode to each contact and normalize data
+      const contactsWithMode = (result.data || []).map((contact) => ({
+        ...contact,
+        sourceMode: mode,
+        // Normalize websites to prevent duplicates
+        websites: Array.isArray(contact.websites) 
+          ? contact.websites.filter((site, index, arr) => arr.indexOf(site) === index).join(', ')
+          : contact.websites || '',
+      }));
+      
+      setProcessedContacts(contactsWithMode);
+      setIsProcessing(false);
     } catch (error) {
       console.error("Error processing card:", error);
       setIsProcessing(false);
@@ -176,7 +135,6 @@ const BusinessCardApp = () => {
     if (bulkImages.length === 0) return;
 
     setIsProcessing(true);
-    setProgress(0);
 
     const formData = new FormData();
     formData.append("userId", userId);
@@ -201,7 +159,21 @@ const BusinessCardApp = () => {
         throw new Error("Bulk OCR processing failed");
       }
 
-      // Progress will be handled by WebSocket
+      const result = await response.json();
+      console.log("📋 Processed contacts:", result.data);
+      
+      // Add sourceMode to each contact and normalize data
+      const contactsWithMode = (result.data || []).map((contact) => ({
+        ...contact,
+        sourceMode: mode,
+        // Normalize websites to prevent duplicates
+        websites: Array.isArray(contact.websites) 
+          ? contact.websites.filter((site, index, arr) => arr.indexOf(site) === index).join(', ')
+          : contact.websites || '',
+      }));
+      
+      setProcessedContacts(contactsWithMode);
+      setIsProcessing(false);
     } catch (error) {
       console.error("Error processing bulk cards:", error);
       setIsProcessing(false);
@@ -349,8 +321,18 @@ const BusinessCardApp = () => {
   // Clear processed contacts when switching modes
   const handleModeChange = (newMode) => {
     if (newMode !== mode) {
+      // Check if there's processed data that will be lost
+      if (processedContacts.length > 0 || isProcessing) {
+        const confirmed = window.confirm(
+          `Switching to ${newMode === "single" ? "Single Card" : "Bulk Upload"} mode will clear all current processed data. Are you sure you want to continue?`
+        );
+        
+        if (!confirmed) {
+          return; // User cancelled, don't switch modes
+        }
+      }
+      
       setProcessedContacts([]);
-      setProgress(0);
       setIsProcessing(false);
     }
     setMode(newMode);
@@ -585,7 +567,7 @@ const BusinessCardApp = () => {
                   {isProcessing ? (
                     <>
                       <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      Processing... {progress}%
+                      Processing...
                     </>
                   ) : (
                     <>
@@ -744,13 +726,7 @@ const BusinessCardApp = () => {
                             Websites
                           </label>
                           <Input
-                            value={
-                              contact.websites ||
-                              (Array.isArray(contact.websites)
-                                ? contact.websites[0]
-                                : "") ||
-                              ""
-                            }
+                            value={contact.websites || ""}
                             onChange={(e) =>
                               updateContact(index, "websites", e.target.value)
                             }
@@ -864,7 +840,7 @@ const BusinessCardApp = () => {
                   {isProcessing ? (
                     <>
                       <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      Processing... {progress}%
+                      Processing...
                     </>
                   ) : (
                     <>

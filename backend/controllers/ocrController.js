@@ -26,14 +26,6 @@ const NAME_EXCLUDE_WORDS = [
 ];
 
 // ---------- Helpers ----------
-function safeSend(ws, obj) {
-  if (!ws) return;
-  try {
-    ws.send(JSON.stringify(obj));
-  } catch (err) {
-    console.error("⚠️ WS send failed:", err.message);
-  }
-}
 
 function ensureArray(value) {
   if (!value) return [];
@@ -578,7 +570,7 @@ async function processOCR(filePath) {
 }
 
 // ---------- Enhanced Batch Processing ----------
-async function processInBatches(items, batchSize, fn, ws, userId, stage) {
+async function processInBatches(items, batchSize, fn) {
   const results = [];
   
   for (let i = 0; i < items.length; i += batchSize) {
@@ -599,23 +591,13 @@ async function processInBatches(items, batchSize, fn, ws, userId, stage) {
         }
       }
     }
-    
-    const progress = Math.round(((i + batch.length) / items.length) * 100);
-    safeSend(ws, { 
-      type: "ocr-progress", 
-      userId, 
-      stage, 
-      done: i + batch.length, 
-      total: items.length, 
-      percent: progress 
-    });
   }
   
   return results;
 }
 
 // ---------- Enhanced GPT Parsing with Better Website Extraction ----------
-async function parseCardsWithGPT(cards, ws, userId, batchSize = 5) {
+async function parseCardsWithGPT(cards, batchSize = 5) {
   console.log(`🤖 GPT: Parsing ${cards.length} cards in batches of ${batchSize}`);
   
   const batches = [];
@@ -826,15 +808,12 @@ function validateAndScoreCard(card) {
 }
 
 // ---------- Main Controller ----------
-async function processBusinessCardWS(req, res) {
+async function processBusinessCard(req, res) {
   try {
     const { userId, mode } = req.body;
     console.log(`📥 Received upload from user ${userId}, Mode: ${mode}`);
     
     if (!userId) return res.status(400).json({ error: "userId is required" });
-
-    const ws = global.wssClients?.[userId];
-    if (!ws) return res.status(400).json({ error: "No active WebSocket connection" });
 
     let pairedCards = [];
 
@@ -861,15 +840,6 @@ async function processBusinessCardWS(req, res) {
         return res.status(500).json({ error: "OCR processing failed" });
       }
       
-      safeSend(ws, { 
-        type: "ocr-progress", 
-        userId, 
-        stage: "Pairing", 
-        done: pairedCards.length, 
-        total: pairedCards.length, 
-        percent: 100 
-      });
-      
     } else if (mode === "bulk") {
       const bulkFiles = req.files["files"] || [];
       if (bulkFiles.length === 0) {
@@ -889,10 +859,7 @@ async function processBusinessCardWS(req, res) {
             fs.unlinkSync(file.path);
             return null;
           }
-        },
-        ws,
-        userId,
-        "OCR"
+        }
       );
 
       // Filter out failed OCR results
@@ -901,23 +868,12 @@ async function processBusinessCardWS(req, res) {
       pairedCards = pairCards(validOCRResults);
       console.log(`📑 Bulk mode: ${bulkFiles.length} files → ${validOCRResults.length} OCR results → ${pairedCards.length} merged cards`);
       
-      safeSend(ws, { 
-        type: "ocr-progress", 
-        userId, 
-        stage: "Pairing", 
-        done: pairedCards.length, 
-        total: pairedCards.length, 
-        percent: 100 
-      });
-      
     } else {
       return res.status(400).json({ error: "Invalid mode. Use 'single' or 'bulk'" });
     }
 
     // GPT PARSING + MERGING
-    safeSend(ws, { type: "ocr-progress", userId, stage: "AI Processing", done: 0, total: pairedCards.length, percent: 0 });
-    
-    const finalParsed = await parseCardsWithGPT(pairedCards, ws, userId, 5);
+    const finalParsed = await parseCardsWithGPT(pairedCards, 5);
     
     // Add metadata and validate
     const validatedCards = finalParsed.map(card => {
@@ -938,10 +894,11 @@ async function processBusinessCardWS(req, res) {
     validatedCards.forEach((card, idx) => {
       console.log(`   #${idx + 1}: ${card.fullName || "N/A"} | ${card.company || "N/A"} | Confidence: ${card.confidence}% | Websites: ${card.websites?.length || 0}`);
     });
-
-    safeSend(ws, { 
-      type: "ocr-complete", 
-      userId, 
+    
+    return res.json({ 
+      success: true, 
+      message: "Processing completed successfully", 
+      mode,
       data: validatedCards,
       summary: {
         totalProcessed: pairedCards.length,
@@ -950,30 +907,14 @@ async function processBusinessCardWS(req, res) {
       }
     });
     
-    return res.json({ 
-      success: true, 
-      message: "Processing completed successfully", 
-      mode,
-      totalCards: validatedCards.length,
-      averageConfidence: Math.round(validatedCards.reduce((sum, card) => sum + card.confidence, 0) / validatedCards.length) || 0
-    });
-    
   } catch (err) {
-    console.error("❌ OCR WS Error:", err);
-    const ws = global.wssClients?.[req.body?.userId];
-    if (ws) {
-      safeSend(ws, { 
-        type: "ocr-error", 
-        userId: req.body?.userId, 
-        error: "Processing failed. Please try again." 
-      });
-    }
+    console.error("❌ OCR Error:", err);
     return res.status(500).json({ error: "OCR processing failed", details: err.message });
   }
 }
 
 module.exports = { 
-  processBusinessCardWS,
+  processBusinessCard,
   // Export helper functions for testing
   extractEmails,
   extractPhones,
