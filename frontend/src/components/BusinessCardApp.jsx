@@ -26,6 +26,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "./ui/dialog";
+import { apiService } from "../lib/api";
 
 const BusinessCardApp = () => {
   // State management
@@ -86,31 +87,8 @@ const BusinessCardApp = () => {
 
     setIsProcessing(true);
 
-    const formData = new FormData();
-    formData.append("userId", userId);
-    formData.append("mode", "single");
-    formData.append("frontImage", frontImage);
-    if (backImage) {
-      formData.append("backImage", backImage);
-    }
-
-    // Debug logging
-    console.log("Single Card FormData contents:");
-    for (let [key, value] of formData.entries()) {
-      console.log(`${key}:`, value);
-    }
-
     try {
-      const response = await fetch("http://localhost:5000/api/ocr/upload", {
-        method: "POST",
-        body: formData,
-      });
-
-      if (!response.ok) {
-        throw new Error("OCR processing failed");
-      }
-
-      const result = await response.json();
+      const result = await apiService.uploadSingleCard(userId, frontImage, backImage);
       console.log("📋 Processed contacts:", result.data);
       
       // Add sourceMode to each contact and normalize data
@@ -136,30 +114,8 @@ const BusinessCardApp = () => {
 
     setIsProcessing(true);
 
-    const formData = new FormData();
-    formData.append("userId", userId);
-    formData.append("mode", "bulk");
-    bulkImages.forEach((image) => {
-      formData.append("files", image);
-    });
-
-    // Debug logging
-    console.log("Bulk Upload FormData contents:");
-    for (let [key, value] of formData.entries()) {
-      console.log(`${key}:`, value);
-    }
-
     try {
-      const response = await fetch("http://localhost:5000/api/ocr/upload", {
-        method: "POST",
-        body: formData,
-      });
-
-      if (!response.ok) {
-        throw new Error("Bulk OCR processing failed");
-      }
-
-      const result = await response.json();
+      const result = await apiService.uploadBulkCards(userId, bulkImages);
       console.log("📋 Processed contacts:", result.data);
       
       // Add sourceMode to each contact and normalize data
@@ -183,23 +139,13 @@ const BusinessCardApp = () => {
   // Export functions
   const exportVCF = async (contact) => {
     try {
-      const response = await fetch("http://localhost:5000/api/export/vcf", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ contact }),
-      });
-
-      if (response.ok) {
-        const blob = await response.blob();
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = `${contact.fullName || "contact"}.vcf`;
-        a.click();
-        window.URL.revokeObjectURL(url);
-      }
+      const blob = await apiService.exportVCF(contact);
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${contact.fullName || "contact"}.vcf`;
+      a.click();
+      window.URL.revokeObjectURL(url);
     } catch (error) {
       console.error("Error exporting VCF:", error);
     }
@@ -207,26 +153,13 @@ const BusinessCardApp = () => {
 
   const exportBulkVCF = async () => {
     try {
-      const response = await fetch(
-        "http://localhost:5000/api/export/vcf-bulk",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ contacts: processedContacts }),
-        }
-      );
-
-      if (response.ok) {
-        const blob = await response.blob();
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = "contacts.vcf";
-        a.click();
-        window.URL.revokeObjectURL(url);
-      }
+      const blob = await apiService.exportBulkVCF(processedContacts);
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "contacts.vcf";
+      a.click();
+      window.URL.revokeObjectURL(url);
     } catch (error) {
       console.error("Error exporting bulk VCF:", error);
     }
@@ -234,26 +167,13 @@ const BusinessCardApp = () => {
 
   const exportCSV = async () => {
     try {
-      const response = await fetch("http://localhost:5000/api/export/csv", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          contacts: processedContacts,
-          fields: selectedFields,
-        }),
-      });
-
-      if (response.ok) {
-        const blob = await response.blob();
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = "contacts.csv";
-        a.click();
-        window.URL.revokeObjectURL(url);
-      }
+      const blob = await apiService.exportCSV(processedContacts, selectedFields);
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "contacts.csv";
+      a.click();
+      window.URL.revokeObjectURL(url);
     } catch (error) {
       console.error("Error exporting CSV:", error);
     }
@@ -261,26 +181,13 @@ const BusinessCardApp = () => {
 
   const exportXLSX = async () => {
     try {
-      const response = await fetch("http://localhost:5000/api/export/xlsx", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          contacts: processedContacts,
-          fields: selectedFields,
-        }),
-      });
-
-      if (response.ok) {
-        const blob = await response.blob();
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = "contacts.xlsx";
-        a.click();
-        window.URL.revokeObjectURL(url);
-      }
+      const blob = await apiService.exportXLSX(processedContacts, selectedFields);
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "contacts.xlsx";
+      a.click();
+      window.URL.revokeObjectURL(url);
     } catch (error) {
       console.error("Error exporting XLSX:", error);
     }
@@ -288,24 +195,13 @@ const BusinessCardApp = () => {
 
   const generateQR = async (contact, isBulk = false) => {
     try {
-      const requestBody = isBulk
-        ? { contacts: processedContacts }
-        : { contact };
-
-      const response = await fetch("http://localhost:5000/api/export/qr", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(requestBody),
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setQrData(data.qrData || "");
-        setQrMode(isBulk ? "bulk" : "single");
-        setQrModalOpen(true);
-      }
+      const data = await apiService.generateQR(
+        isBulk ? null : contact,
+        isBulk ? processedContacts : null
+      );
+      setQrData(data.qrData || "");
+      setQrMode(isBulk ? "bulk" : "single");
+      setQrModalOpen(true);
     } catch (error) {
       console.error("Error generating QR:", error);
     }
@@ -784,6 +680,25 @@ const BusinessCardApp = () => {
                 <h2 className="text-2xl font-semibold text-slate-900 mb-6">
                   Bulk Upload
                 </h2>
+
+                {/* Creative Instruction */}
+                <div className="mb-6 p-4 bg-gradient-to-r from-blue-50 to-purple-50 border border-blue-200 rounded-xl">
+                  <div className="flex items-start gap-3">
+                    <div className="flex-shrink-0 w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center">
+                      <span className="text-white text-sm font-bold">✨</span>
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-semibold text-slate-800 mb-1">
+                        Smart Card Processing
+                      </h3>
+                      <p className="text-sm text-slate-600 leading-relaxed">
+                        <span className="font-medium text-blue-600">Pro Tip:</span> Upload both front and back sides of your business cards! 
+                        Our AI will intelligently merge the information from both sides, creating complete and accurate contact profiles. 
+                        Just drop all your card images - we'll handle the rest! 🚀
+                      </p>
+                    </div>
+                  </div>
+                </div>
 
                 <div
                   className="border-2 border-dashed border-slate-300 rounded-xl p-12 text-center cursor-pointer hover:border-blue-400 hover:bg-blue-50/50 transition-colors"
