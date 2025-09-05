@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { toast } from "react-toastify";
 import {
   CloudUpload,
   Download,
@@ -54,6 +55,8 @@ const BusinessCardApp = () => {
   const fileInputRef = useRef(null);
   const backFileInputRef = useRef(null);
   const bulkFileInputRef = useRef(null);
+  const processedContactsRef = useRef(null);
+  const bulkProcessedContactsRef = useRef(null);
 
 
   // File handling functions
@@ -103,6 +106,26 @@ const BusinessCardApp = () => {
       
       setProcessedContacts(contactsWithMode);
       setIsProcessing(false);
+      
+      // Show success toast
+      toast.success(`Business card processed successfully! Found ${contactsWithMode.length} contact(s).`, {
+        position: "top-right",
+        autoClose: 3000,
+        hideProgressBar: false,
+        closeOnClick: true,
+        pauseOnHover: true,
+        draggable: true,
+      });
+      
+      // Auto-scroll to processed contacts section in single mode
+      if (mode === "single") {
+        setTimeout(() => {
+          processedContactsRef.current?.scrollIntoView({ 
+            behavior: 'smooth', 
+            block: 'start' 
+          });
+        }, 100);
+      }
     } catch (error) {
       console.error("Error processing card:", error);
       setIsProcessing(false);
@@ -130,6 +153,26 @@ const BusinessCardApp = () => {
       
       setProcessedContacts(contactsWithMode);
       setIsProcessing(false);
+      
+      // Show success toast
+      toast.success(`🎉 Bulk processing completed! Successfully processed ${contactsWithMode.length} business card(s).`, {
+        position: "top-right",
+        autoClose: 3000,
+        hideProgressBar: false,
+        closeOnClick: true,
+        pauseOnHover: true,
+        draggable: true,
+      });
+      
+      // Auto-scroll to processed contacts section in bulk mode
+      if (mode === "bulk") {
+        setTimeout(() => {
+          bulkProcessedContactsRef.current?.scrollIntoView({ 
+            behavior: 'smooth', 
+            block: 'start' 
+          });
+        }, 100);
+      }
     } catch (error) {
       console.error("Error processing bulk cards:", error);
       setIsProcessing(false);
@@ -477,6 +520,7 @@ const BusinessCardApp = () => {
               {/* Processed Contact Form - Only for Single Mode */}
               {processedContacts.length > 0 && (
                   <motion.div
+                    ref={processedContactsRef}
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     className="bg-white border border-slate-200 rounded-2xl p-8 shadow-lg"
@@ -769,6 +813,7 @@ const BusinessCardApp = () => {
               {/* Field Selection - Only for Bulk Mode */}
               {processedContacts.length > 0 && (
                   <motion.div
+                    ref={bulkProcessedContactsRef}
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     className="bg-white border border-slate-200 rounded-2xl p-8 shadow-lg"
