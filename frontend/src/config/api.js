@@ -2,7 +2,7 @@
 // Change this URL to point to your backend server
 export const API_CONFIG = {
   // Development
-  BASE_URL: 'http://localhost:5000',
+  BASE_URL: 'https://cardscanner.0804.in',
   
   // Uncomment and modify for production:
   // BASE_URL: 'https://your-production-api.com',
