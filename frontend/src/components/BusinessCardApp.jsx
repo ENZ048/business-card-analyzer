@@ -15,6 +15,8 @@ import {
   CheckCircle,
   AlertCircle,
   Loader2,
+  X,
+  Plus,
 } from "lucide-react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
@@ -28,6 +30,34 @@ import {
   DialogTrigger,
 } from "./ui/dialog";
 import { apiService } from "../lib/api";
+
+// URL deduplication utility function
+const deduplicateUrls = (urls, allowEmpty = false) => {
+  if (!Array.isArray(urls)) return [];
+  
+  const seen = new Set();
+  const unique = [];
+  
+  urls.forEach(url => {
+    if (url && typeof url === 'string') {
+      // Normalize URL for comparison (remove protocol, www, trailing slash)
+      const normalized = url.trim().toLowerCase()
+        .replace(/^https?:\/\//, '')
+        .replace(/^www\./, '')
+        .replace(/\/$/, '');
+      
+      if (normalized && !seen.has(normalized)) {
+        seen.add(normalized);
+        unique.push(url.trim());
+      }
+    } else if (allowEmpty && url === '') {
+      // Allow empty strings when adding new entries
+      unique.push('');
+    }
+  });
+  
+  return unique;
+};
 
 const BusinessCardApp = () => {
   // State management
@@ -98,10 +128,10 @@ const BusinessCardApp = () => {
       const contactsWithMode = (result.data || []).map((contact) => ({
         ...contact,
         sourceMode: mode,
-        // Normalize websites to prevent duplicates
-        websites: Array.isArray(contact.websites) 
-          ? contact.websites.filter((site, index, arr) => arr.indexOf(site) === index).join(', ')
-          : contact.websites || '',
+        // Keep websites as array and deduplicate URLs
+        websites: deduplicateUrls(Array.isArray(contact.websites) 
+          ? contact.websites
+          : (contact.websites ? [contact.websites] : [])),
       }));
       
       setProcessedContacts(contactsWithMode);
@@ -145,10 +175,10 @@ const BusinessCardApp = () => {
       const contactsWithMode = (result.data || []).map((contact) => ({
         ...contact,
         sourceMode: mode,
-        // Normalize websites to prevent duplicates
-        websites: Array.isArray(contact.websites) 
-          ? contact.websites.filter((site, index, arr) => arr.indexOf(site) === index).join(', ')
-          : contact.websites || '',
+        // Keep websites as array and deduplicate URLs
+        websites: deduplicateUrls(Array.isArray(contact.websites) 
+          ? contact.websites
+          : (contact.websites ? [contact.websites] : [])),
       }));
       
       setProcessedContacts(contactsWithMode);
@@ -252,9 +282,11 @@ const BusinessCardApp = () => {
 
   // Contact editing
   const updateContact = (index, field, value) => {
+    console.log(`Updating contact ${index}, field: ${field}, value:`, value);
     const updatedContacts = [...processedContacts];
     updatedContacts[index] = { ...updatedContacts[index], [field]: value };
     setProcessedContacts(updatedContacts);
+    console.log("Updated contacts:", updatedContacts);
   };
 
   // Clear processed contacts when switching modes
@@ -665,13 +697,56 @@ const BusinessCardApp = () => {
                           <label className="block text-slate-700 mb-2 font-medium">
                             Websites
                           </label>
-                          <Input
-                            value={contact.websites || ""}
-                            onChange={(e) =>
-                              updateContact(index, "websites", e.target.value)
-                            }
-                            placeholder="Enter website URL"
-                          />
+                          <div className="space-y-2">
+                            {(Array.isArray(contact.websites) ? contact.websites : (contact.websites ? [contact.websites] : [])).map((website, websiteIndex) => (
+                              <div key={websiteIndex} className="flex gap-2">
+                                <Input
+                                  value={website}
+                                  onChange={(e) => {
+                                    const websites = Array.isArray(contact.websites) ? [...contact.websites] : (contact.websites ? [contact.websites] : []);
+                                    websites[websiteIndex] = e.target.value;
+                                    // Only deduplicate if the value is not empty (user is typing)
+                                    if (e.target.value.trim()) {
+                                      updateContact(index, "websites", deduplicateUrls(websites));
+                                    } else {
+                                      updateContact(index, "websites", websites);
+                                    }
+                                  }}
+                                  placeholder="Enter website URL"
+                                />
+                                <Button
+                                  variant="outline"
+                                  size="icon"
+                                  onClick={() => {
+                                    const websites = Array.isArray(contact.websites) ? [...contact.websites] : (contact.websites ? [contact.websites] : []);
+                                    websites.splice(websiteIndex, 1);
+                                    updateContact(index, "websites", deduplicateUrls(websites));
+                                  }}
+                                >
+                                  <X className="w-4 h-4" />
+                                </Button>
+                              </div>
+                            ))}
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              className="w-full"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                console.log("Add Website button clicked for contact:", index);
+                                const websites = Array.isArray(contact.websites) ? [...contact.websites] : (contact.websites ? [contact.websites] : []);
+                                console.log("Current websites:", websites);
+                                websites.push("");
+                                console.log("New websites array:", websites);
+                                updateContact(index, "websites", websites);
+                              }}
+                            >
+                              <Plus className="w-4 h-4 mr-2" />
+                              Add Website
+                            </Button>
+                          </div>
                         </div>
 
                         <div>

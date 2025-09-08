@@ -8,7 +8,7 @@ function normalizeArrayField(field) {
   return [field];
 }
 
-// Deduplicate websites array
+// Deduplicate websites array with enhanced URL normalization
 function deduplicateWebsites(websites) {
   if (!websites || !Array.isArray(websites)) return [];
   
@@ -17,9 +17,14 @@ function deduplicateWebsites(websites) {
   
   websites.forEach(website => {
     if (website && typeof website === 'string') {
-      const clean = website.trim().toLowerCase();
-      if (clean && !seen.has(clean)) {
-        seen.add(clean);
+      // Normalize URL for comparison (remove protocol, www, trailing slash)
+      const normalized = website.trim().toLowerCase()
+        .replace(/^https?:\/\//, '')
+        .replace(/^www\./, '')
+        .replace(/\/$/, '');
+      
+      if (normalized && !seen.has(normalized)) {
+        seen.add(normalized);
         unique.push(website.trim());
       }
     }
