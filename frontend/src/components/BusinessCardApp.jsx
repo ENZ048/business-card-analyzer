@@ -765,21 +765,53 @@ const BusinessCardApp = () => {
                     ))}
 
                     {/* Export Buttons */}
-                    <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-4">
-                                          <Button
-                      onClick={() => exportVCF(processedContacts[0])}
-                      className="w-full bg-gradient-to-r from-blue-700 via-blue-500 to-cyan-400 hover:from-blue-800 hover:via-blue-600 hover:to-cyan-500 text-white border-0 shadow-lg"
-                    >
-                        <Download className="w-4 h-4 mr-2" />
-                        Download VCF
-                      </Button>
-                                          <Button
-                      onClick={() => generateQR(processedContacts[0], false)}
-                      className="w-full bg-gradient-to-r from-blue-700 via-blue-500 to-cyan-400 hover:from-blue-800 hover:via-blue-600 hover:to-cyan-500 text-white border-0 shadow-lg"
-                    >
-                        <QrCode className="w-4 h-4 mr-2" />
-                        Scan QR
-                      </Button>
+                    <div className="mt-8 space-y-6">
+                      {/* Spreadsheet Export Section */}
+                      <div>
+                        <h3 className="text-lg font-semibold text-slate-800 mb-4">
+                          Spreadsheet Export
+                        </h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <Button
+                            onClick={exportXLSX}
+                            className="w-full bg-green-600 hover:bg-green-700"
+                          >
+                            <Download className="w-4 h-4 mr-2" />
+                            Download XLSX{" "}
+                            <span className="text-xs ml-1">(Recommended)</span>
+                          </Button>
+                          <Button 
+                            onClick={exportCSV} 
+                            className="w-full bg-gradient-to-r from-blue-700 via-blue-500 to-cyan-400 hover:from-blue-800 hover:via-blue-600 hover:to-cyan-500 text-white border-0 shadow-lg"
+                          >
+                            <Download className="w-4 h-4 mr-2" />
+                            Download CSV
+                          </Button>
+                        </div>
+                      </div>
+
+                      {/* Contact Export Section */}
+                      <div>
+                        <h3 className="text-lg font-semibold text-slate-800 mb-4">
+                          Contact Export
+                        </h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <Button
+                            onClick={() => exportVCF(processedContacts[0])}
+                            className="w-full bg-gradient-to-r from-blue-700 via-blue-500 to-cyan-400 hover:from-blue-800 hover:via-blue-600 hover:to-cyan-500 text-white border-0 shadow-lg"
+                          >
+                            <Download className="w-4 h-4 mr-2" />
+                            Download VCF
+                          </Button>
+                          <Button
+                            onClick={() => generateQR(processedContacts[0], false)}
+                            className="w-full bg-gradient-to-r from-blue-700 via-blue-500 to-cyan-400 hover:from-blue-800 hover:via-blue-600 hover:to-cyan-500 text-white border-0 shadow-lg"
+                          >
+                            <QrCode className="w-4 h-4 mr-2" />
+                            Scan QR
+                          </Button>
+                        </div>
+                      </div>
                     </div>
                   </motion.div>
                 )}
