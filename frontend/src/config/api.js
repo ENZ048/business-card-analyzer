@@ -2,11 +2,11 @@
 // Change this URL to point to your backend server
 export const API_CONFIG = {
   // Development
-  BASE_URL: 'http://localhost:5000',
+  // BASE_URL: 'http://localhost:5000',
   
-  // Uncomment and modify for production:
-  // BASE_URL: 'https://cardscanner.0804.in',
-  // BASE_URL: 'https://api.yourdomain.com',
+  // Production - Update this to your actual backend URL
+  BASE_URL: 'https://superscanai.com/api',
+  // BASE_URL: 'https://your-backend-domain.com',
   
   // Timeout settings
   TIMEOUT: 30000, // 30 seconds

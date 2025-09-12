@@ -1,0 +1,17 @@
+<!-- WordPress Login Button Integration -->
+<!-- Replace your current login button with this code -->
+
+<a href="https://superscanai.com/login/" class="login-button">
+  Login to SuperScan
+</a>
+
+<!-- Or if you want to style it like your existing button: -->
+<button onclick="window.location.href='https://superscanai.com/login/'" class="btn btn-primary">
+  Login
+</button>
+
+<!-- For WordPress theme integration, you can also use: -->
+<?php
+// In your WordPress theme files
+echo '<a href="' . home_url('/login/') . '" class="login-button">Login to SuperScan</a>';
+?>

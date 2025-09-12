@@ -18,9 +18,20 @@ const app = express();
 const server = http.createServer(app);
 
 // ---------- Middlewares ----------
-// When serving frontend from same origin you can restrict CORS or remove it.
-// During local testing, keeping origin: "*" is fine.
-app.use(cors({ origin: "*", credentials: true }));
+// CORS configuration for production
+const corsOptions = {
+  origin: [
+    "http://localhost:3000", // Development
+    "https://superscanai.com", // Production WordPress site
+    "https://www.superscanai.com", // Production with www
+    "https://app.superscanai.com" // If using subdomain approach
+  ],
+  credentials: true,
+  optionsSuccessStatus: 200
+};
+
+// Use environment-based CORS
+app.use(cors(process.env.NODE_ENV === 'production' ? corsOptions : { origin: "*", credentials: true }));
 app.use(express.json());
 app.use(cookieParser());
 
