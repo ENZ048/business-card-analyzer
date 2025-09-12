@@ -13,9 +13,15 @@ const api = axios.create({
   },
 });
 
-// Request interceptor for logging (optional)
+// Request interceptor for authentication and logging
 api.interceptors.request.use(
   (config) => {
+    // Add auth token to requests
+    const token = localStorage.getItem('token');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    
     console.log(`🚀 API Request: ${config.method?.toUpperCase()} ${config.url}`);
     return config;
   },
@@ -39,6 +45,126 @@ api.interceptors.response.use(
 
 // API Service Functions
 export const apiService = {
+  // Authentication
+  login: async (email, password) => {
+    const response = await api.post('/api/users/login', { email, password });
+    return response.data;
+  },
+
+  register: async (userData) => {
+    const response = await api.post('/api/users/register', userData);
+    return response.data;
+  },
+
+  getProfile: async () => {
+    const response = await api.get('/api/users/profile');
+    return response.data;
+  },
+
+  updateProfile: async (userData) => {
+    const response = await api.put('/api/users/profile', userData);
+    return response.data;
+  },
+
+  changePassword: async (currentPassword, newPassword) => {
+    const response = await api.put('/api/users/change-password', {
+      currentPassword,
+      newPassword
+    });
+    return response.data;
+  },
+
+  // User Usage Analytics
+  getUserUsage: async () => {
+    const response = await api.get('/api/users/usage');
+    return response.data;
+  },
+
+  getProcessingHistory: async (page = 1, limit = 20) => {
+    const response = await api.get(`/api/users/history?page=${page}&limit=${limit}`);
+    return response.data;
+  },
+
+  // Plan Management
+  getPlans: async () => {
+    const response = await api.get('/api/plans');
+    return response.data;
+  },
+
+  getCurrentPlan: async () => {
+    const response = await api.get('/api/plans/current');
+    return response.data;
+  },
+
+  upgradePlan: async (planId) => {
+    const response = await api.post('/api/plans/upgrade', { planId });
+    return response.data;
+  },
+
+  getUsageHistory: async (year) => {
+    const response = await api.get(`/api/plans/usage?year=${year}`);
+    return response.data;
+  },
+
+  checkUsage: async (scanCount = 1) => {
+    const response = await api.post('/api/plans/check-usage', { scanCount });
+    return response.data;
+  },
+
+  // Admin API
+  getAdminDashboard: async () => {
+    const response = await api.get('/api/admin/dashboard');
+    return response.data;
+  },
+
+  getAdminUsers: async (page = 1, limit = 20, search = '', role = '', isActive = '') => {
+    const params = new URLSearchParams({ page, limit });
+    if (search) params.append('search', search);
+    if (role) params.append('role', role);
+    if (isActive) params.append('isActive', isActive);
+    
+    const response = await api.get(`/api/admin/users?${params}`);
+    return response.data;
+  },
+
+  getAdminUserDetails: async (userId) => {
+    const response = await api.get(`/api/admin/users/${userId}`);
+    return response.data;
+  },
+
+  updateAdminUser: async (userId, userData) => {
+    const response = await api.put(`/api/admin/users/${userId}`, userData);
+    return response.data;
+  },
+
+  deleteAdminUser: async (userId) => {
+    const response = await api.delete(`/api/admin/users/${userId}`);
+    return response.data;
+  },
+
+  getAdminPlans: async () => {
+    const response = await api.get('/api/admin/plans');
+    return response.data;
+  },
+
+  updateAdminPlan: async (planId, planData) => {
+    const response = await api.put(`/api/admin/plans/${planId}`, planData);
+    return response.data;
+  },
+
+  getAdminUsage: async (year, month) => {
+    const params = new URLSearchParams({ year });
+    if (month) params.append('month', month);
+    
+    const response = await api.get(`/api/admin/usage?${params}`);
+    return response.data;
+  },
+
+  resetUserUsage: async (userId) => {
+    const response = await api.post(`/api/admin/users/${userId}/reset-usage`);
+    return response.data;
+  },
+
   // OCR Processing
   uploadSingleCard: async (userId, frontImage, backImage = null) => {
     const formData = new FormData();

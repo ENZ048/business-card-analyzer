@@ -1,6 +1,6 @@
 # API Configuration Guide
 
-This guide explains how to change the backend URL for your Business Card Analyzer frontend.
+This guide explains how to change the backend URL for your Super Scanner frontend.
 
 ## Quick Setup
 
@@ -46,7 +46,7 @@ VITE_API_BASE_URL=http://localhost:3001
 
 - `src/lib/api.js` - Centralized API service with axios
 - `src/config/api.js` - Configuration file for API settings
-- `src/components/BusinessCardApp.jsx` - Updated to use centralized API calls
+- `src/components/BusinessCardApp.jsx` - Updated to use centralized API calls (Super Scanner)
 
 ## Benefits
 

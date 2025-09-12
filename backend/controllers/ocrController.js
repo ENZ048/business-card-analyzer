@@ -5,6 +5,8 @@ const path = require("path");
 const { pairCards, mergeCards } = require("../services/cardPairingService");
 const OpenAI = require("openai");
 const { v4: uuidv4 } = require("uuid");
+const User = require("../models/User");
+const Usage = require("../models/Usage");
 
 const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 const visionClient = new vision.ImageAnnotatorClient({
@@ -807,6 +809,42 @@ function validateAndScoreCard(card) {
   };
 }
 
+// ---------- Usage Check Function ----------
+async function checkUserUsage(userId, scanCount = 1) {
+  try {
+    const user = await User.findById(userId).populate('currentPlan');
+    if (!user || !user.currentPlan) {
+      throw new Error('No active plan found');
+    }
+
+    // Check if plan is expired
+    const now = new Date();
+    if (user.planEndDate && user.planEndDate < now) {
+      throw new Error('Your plan has expired. Please upgrade to continue.');
+    }
+
+    // Get current usage
+    const currentUsage = await Usage.getOrCreateUsage(
+      user._id, 
+      user.currentPlan._id, 
+      user.currentPlan.cardScansLimit
+    );
+
+    // Check if user can perform the scan
+    if (!currentUsage.canPerformScan()) {
+      throw new Error('You have reached your monthly scan limit. Please upgrade your plan.');
+    }
+
+    if ((currentUsage.cardScansUsed + scanCount) > currentUsage.cardScansLimit && !user.currentPlan.isUnlimited()) {
+      throw new Error(`You can only perform ${currentUsage.getRemainingScans()} more scans this month. Please upgrade your plan.`);
+    }
+
+    return { user, currentUsage };
+  } catch (error) {
+    throw error;
+  }
+}
+
 // ---------- Main Controller ----------
 async function processBusinessCard(req, res) {
   try {
@@ -814,6 +852,19 @@ async function processBusinessCard(req, res) {
     console.log(`📥 Received upload from user ${userId}, Mode: ${mode}`);
     
     if (!userId) return res.status(400).json({ error: "userId is required" });
+
+    // Check user usage limits - we'll determine the actual scan count after processing
+    let user, currentUsage;
+    try {
+      const usageCheck = await checkUserUsage(userId, 1); // Initial check with 1
+      user = usageCheck.user;
+      currentUsage = usageCheck.currentUsage;
+    } catch (usageError) {
+      return res.status(403).json({ 
+        error: usageError.message,
+        code: 'USAGE_LIMIT_EXCEEDED'
+      });
+    }
 
     let pairedCards = [];
 
@@ -886,6 +937,36 @@ async function processBusinessCard(req, res) {
       return validated;
     }).filter(card => card.isValid); // Only return valid cards
 
+    // Update usage after successful processing - count actual images processed
+    let actualScanCount;
+    if (mode === "single") {
+      // In single mode, count the actual number of images processed (front + back if provided)
+      const front = req.files["frontImage"]?.[0];
+      const back = req.files["backImage"]?.[0];
+      actualScanCount = front ? 1 : 0;
+      if (back) actualScanCount += 1;
+    } else {
+      // In bulk mode, count the actual number of images uploaded (not the final merged cards)
+      const bulkFiles = req.files["files"] || [];
+      actualScanCount = bulkFiles.length;
+    }
+    
+    try {
+      // Check if user has enough remaining scans for the actual number of images/cards
+      if ((currentUsage.cardScansUsed + actualScanCount) > currentUsage.cardScansLimit && !user.currentPlan.isUnlimited()) {
+        return res.status(403).json({ 
+          error: `You can only perform ${currentUsage.getRemainingScans()} more scans this month. Please upgrade your plan.`,
+          code: 'USAGE_LIMIT_EXCEEDED'
+        });
+      }
+      
+      await currentUsage.incrementUsage(actualScanCount, mode);
+      console.log(`📊 Usage updated for user ${userId}: +${actualScanCount} scans (${currentUsage.cardScansUsed}/${currentUsage.cardScansLimit}) - ${mode} mode`);
+    } catch (usageError) {
+      console.error('Error updating usage:', usageError);
+      // Don't fail the request if usage update fails
+    }
+
     // COMPLETE
     console.log("📊 Final Parsed & Validated Results:");
     console.log(`   Total Valid Contacts: ${validatedCards.length}`);
@@ -904,6 +985,12 @@ async function processBusinessCard(req, res) {
         totalProcessed: pairedCards.length,
         validCards: validatedCards.length,
         averageConfidence: Math.round(validatedCards.reduce((sum, card) => sum + card.confidence, 0) / validatedCards.length) || 0
+      },
+      usage: {
+        cardScansUsed: currentUsage.cardScansUsed,
+        cardScansLimit: currentUsage.cardScansLimit,
+        remainingScans: currentUsage.getRemainingScans(),
+        scansThisRequest: actualScanCount
       }
     });
     

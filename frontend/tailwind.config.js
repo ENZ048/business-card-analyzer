@@ -7,9 +7,27 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        sans: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+        sans: ['DM Sans', 'ui-sans-serif', 'system-ui', 'sans-serif'],
       },
       colors: {
+        // Premium color scheme
+        'premium-white': '#FFFFFF',
+        'premium-beige': '#EFEAE3',
+        'premium-beige-light': '#F5F2ED',
+        'premium-beige-dark': '#E5DDD3',
+        'premium-black': '#000000',
+        'premium-orange': '#FE330A',
+        'premium-orange-light': '#FF5A33',
+        'premium-orange-dark': '#E02A08',
+        'premium-orange-muted': '#FFE5E1',
+        'premium-gray': '#6B7280',
+        'premium-gray-light': '#9CA3AF',
+        'premium-gray-dark': '#374151',
+        'premium-border': '#D1D5DB',
+        'premium-border-light': '#E5E7EB',
+        'premium-border-dark': '#9CA3AF',
+        
+        // CSS variables for compatibility
         ring: 'var(--ring)',
         background: 'var(--background)',
         foreground: 'var(--foreground)',

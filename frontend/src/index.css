@@ -1,29 +1,29 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&display=swap');
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 :root {
-  --ring: 59 130 246 / 0.2;
-  --background: 255 255 255;
-  --foreground: 15 23 42;
-  --card: 255 255 255;
-  --card-border: 226 232 240;
-  --muted: 248 250 252;
-  --muted-foreground: 100 116 139;
-  --accent: 248 250 252;
-  --accent-foreground: 15 23 42;
-  --primary: 59 130 246;
-  --primary-foreground: 255 255 255;
-  --secondary: 241 245 249;
-  --secondary-foreground: 15 23 42;
-  --destructive: 239 68 68;
-  --destructive-foreground: 255 255 255;
-  --border: 226 232 240;
-  --input: 255 255 255;
-  --input-border: 226 232 240;
-  --ring: 59 130 246;
+  /* Premium color scheme variables */
+  --ring: 254 51 10 / 0.2;
+  --background: 255 255 255; /* premium-white */
+  --foreground: 0 0 0; /* premium-black */
+  --card: 239 234 227; /* premium-beige */
+  --card-border: 209 213 219; /* premium-border */
+  --muted: 245 242 237; /* premium-beige-light */
+  --muted-foreground: 107 114 128; /* premium-gray */
+  --accent: 255 229 225; /* premium-orange-muted */
+  --accent-foreground: 0 0 0; /* premium-black */
+  --primary: 254 51 10; /* premium-orange */
+  --primary-foreground: 255 255 255; /* premium-white */
+  --secondary: 239 234 227; /* premium-beige */
+  --secondary-foreground: 0 0 0; /* premium-black */
+  --destructive: 224 42 8; /* premium-orange-dark */
+  --destructive-foreground: 255 255 255; /* premium-white */
+  --border: 209 213 219; /* premium-border */
+  --input: 255 255 255; /* premium-white */
+  --input-border: 209 213 219; /* premium-border */
 }
 
 * {
@@ -32,29 +32,30 @@
 
 body {
   margin: 0;
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+  font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
     'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
     sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background-color: #fafafa;
+  background-color: #FFFFFF; /* premium-white */
+  color: #000000; /* premium-black */
 }
 
-/* Custom scrollbar */
+/* Custom scrollbar with premium colors */
 ::-webkit-scrollbar {
   width: 8px;
 }
 
 ::-webkit-scrollbar-track {
-  background: rgba(0, 0, 0, 0.05);
+  background: #EFEAE3; /* premium-beige */
   border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(0, 0, 0, 0.2);
+  background: #FE330A; /* premium-orange */
   border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(0, 0, 0, 0.3);
+  background: #E02A08; /* premium-orange-dark */
 }

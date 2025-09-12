@@ -1,6 +1,6 @@
-# Business Card Analyzer Frontend
+# Super Scanner Frontend
 
-A premium, techy-looking React + Tailwind frontend for a Business Card OCR application with advanced features and modern UI design.
+A premium, techy-looking React + Tailwind frontend for a Super Scanner OCR application with advanced features and modern UI design.
 
 ## Features
 
@@ -84,7 +84,7 @@ npm run dev
 ```
 src/
 ├── components/
-│   ├── BusinessCardApp.jsx      # Main application component
+│   ├── BusinessCardApp.jsx      # Main application component (Super Scanner)
 │   └── ui/                      # Reusable UI components
 │       ├── button.jsx           # Button with variants
 │       ├── input.jsx            # Styled input fields

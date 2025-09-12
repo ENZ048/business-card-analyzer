@@ -17,6 +17,11 @@ import {
   Loader2,
   X,
   Plus,
+  BarChart3,
+  Settings,
+  LogOut,
+  Menu,
+  Info,
 } from "lucide-react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
@@ -27,9 +32,13 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
   DialogTrigger,
 } from "./ui/dialog";
 import { apiService } from "../lib/api";
+import UserUsage from "./UserUsage";
+import ChangePassword from "./ChangePassword";
+import { useAuth } from "../contexts/AuthContext";
 
 // URL deduplication utility function
 const deduplicateUrls = (urls, allowEmpty = false) => {
@@ -60,6 +69,9 @@ const deduplicateUrls = (urls, allowEmpty = false) => {
 };
 
 const BusinessCardApp = () => {
+  // Auth context
+  const { logout, user } = useAuth();
+  
   // State management
   const [mode, setMode] = useState("single");
   const [frontImage, setFrontImage] = useState(null);
@@ -79,7 +91,32 @@ const BusinessCardApp = () => {
   const [qrModalOpen, setQrModalOpen] = useState(false);
   const [qrData, setQrData] = useState("");
   const [qrMode, setQrMode] = useState("single"); // "single" or "bulk"
-  const [userId] = useState("abc123"); // In real app, this would come from auth
+  
+  // Navbar state
+  const [activeTab, setActiveTab] = useState('dashboard');
+  const [userProfile, setUserProfile] = useState(null);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  // Menu items
+  const menuItems = [
+    { id: 'dashboard', label: 'Dashboard', icon: FileText },
+    { id: 'usage', label: 'Usage Analytics', icon: BarChart3 },
+    { id: 'settings', label: 'Change Password', icon: Settings },
+  ];
+
+  // Render content based on active tab
+  const renderContent = () => {
+    switch (activeTab) {
+      case 'dashboard':
+        return renderDashboard();
+      case 'usage':
+        return <UserUsage />;
+      case 'settings':
+        return <ChangePassword />;
+      default:
+        return renderDashboard();
+    }
+  };
 
   // Refs
   const fileInputRef = useRef(null);
@@ -87,6 +124,40 @@ const BusinessCardApp = () => {
   const bulkFileInputRef = useRef(null);
   const processedContactsRef = useRef(null);
   const bulkProcessedContactsRef = useRef(null);
+
+  // Fetch user profile on component mount
+  useEffect(() => {
+    const fetchUserProfile = async () => {
+      if (!user?.id) {
+        // Set fallback profile data if no user
+        setUserProfile({
+          firstName: 'User',
+          lastName: 'Account',
+          email: 'user@example.com',
+          currentPlan: { name: 'Free Plan' }
+        });
+        return;
+      }
+
+      try {
+        const response = await apiService.getProfile();
+        if (response.success) {
+          setUserProfile(response.data);
+        }
+      } catch (error) {
+        console.error('Error fetching user profile:', error);
+        // Set fallback profile data
+        setUserProfile({
+          firstName: user.firstName || 'User',
+          lastName: user.lastName || 'Account',
+          email: user.email || 'user@example.com',
+          currentPlan: { name: 'Free Plan' }
+        });
+      }
+    };
+
+    fetchUserProfile();
+  }, [user]);
 
 
   // File handling functions
@@ -116,12 +187,15 @@ const BusinessCardApp = () => {
 
   // OCR Processing
   const processSingleCard = async () => {
-    if (!frontImage) return;
+    if (!frontImage || !user?.id) {
+      console.error("Cannot process card: Missing front image or user authentication");
+      return;
+    }
 
     setIsProcessing(true);
 
     try {
-      const result = await apiService.uploadSingleCard(userId, frontImage, backImage);
+      const result = await apiService.uploadSingleCard(user.id, frontImage, backImage);
       console.log("📋 Processed contacts:", result.data);
       
       // Add sourceMode to each contact and normalize data
@@ -163,12 +237,15 @@ const BusinessCardApp = () => {
   };
 
   const processBulkCards = async () => {
-    if (bulkImages.length === 0) return;
+    if (bulkImages.length === 0 || !user?.id) {
+      console.error("Cannot process bulk cards: Missing images or user authentication");
+      return;
+    }
 
     setIsProcessing(true);
 
     try {
-      const result = await apiService.uploadBulkCards(userId, bulkImages);
+      const result = await apiService.uploadBulkCards(user.id, bulkImages);
       console.log("📋 Processed contacts:", result.data);
       
       // Add sourceMode to each contact and normalize data
@@ -339,712 +416,905 @@ const BusinessCardApp = () => {
     setProcessedContacts(updatedContacts);
   };
 
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 p-6">
-      <div className="mx-auto max-w-6xl">
-        {/* Header */}
-        <motion.div
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="text-center mb-12"
+  // Render dashboard content (original BusinessCardApp content)
+  const renderDashboard = () => (
+    <div className="max-w-6xl mx-auto space-y-8">
+      {/* Header */}
+      <motion.div
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="text-center mb-12"
+      >
+        <h1
+          className="text-4xl md:text-5xl font-bold text-premium-black mb-2 pb-4"
         >
-          <h1
-            className="text-5xl font-bold bg-gradient-to-r from-blue-700 via-blue-500 to-cyan-400 bg-clip-text text-transparent mb-2 pb-4"
-            style={{ backgroundClip: "text", WebkitBackgroundClip: "text" }}
+          Super Scanner
+        </h1>
+        <p className="text-lg md:text-xl text-premium-gray">
+          Extract and manage contact information with AI-powered OCR
+        </p>
+        <p className="text-sm text-premium-gray-light mt-2">
+          Powered by{" "}
+          <a
+            href="https://troikatech.in/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-blue-600 hover:text-blue-700 font-semibold decoration-2 underline-offset-2 transition-colors"
           >
-            Business Card Analyzer
-          </h1>
-          <p className="text-xl text-slate-600">
-            Extract and manage contact information with AI-powered OCR
-          </p>
-          <p className="text-sm text-slate-500 mt-2">
-            Powered by{" "}
-            <a
-              href="https://troikatech.in/"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-blue-600 hover:text-blue-700 font-semibold decoration-2 underline-offset-2 transition-colors"
-            >
-              Troika Tech
-            </a>
-          </p>
-        </motion.div>
+            Troika Tech
+          </a>
+        </p>
+      </motion.div>
 
-        {/* Mode Toggle */}
-        <motion.div
-          initial={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-          className="mb-8"
-        >
-          <div className="w-full max-w-md mx-auto">
-            <div className="relative bg-slate-200 rounded-full p-1 shadow-inner">
-              {/* Moving gradient indicator */}
-              <motion.div
-                className="absolute inset-y-1 w-1/2 rounded-full bg-gradient-to-r from-blue-700 via-blue-500 to-cyan-400 shadow-lg"
-                animate={{
-                  left: mode === "single" ? "0.25rem" : "50%",
-                }}
-                transition={{ duration: 0.3, ease: "easeInOut" }}
-              />
-
-              {/* Radio buttons */}
-              <RadioGroup
-                value={mode}
-                onValueChange={handleModeChange}
-                className="relative z-10 grid grid-cols-2"
-              >
-                <RadioGroupItem
-                  value="single"
-                  id="single"
-                  className="h-12 rounded-full border-0 bg-transparent text-center"
-                >
-                  <div className="flex items-center justify-center h-full">
-                    <span
-                      className={`text-sm font-medium transition-colors duration-200 ${
-                        mode === "single" ? "text-white" : "text-slate-600"
-                      }`}
-                    >
-                      Single Card
-                    </span>
-                  </div>
-                </RadioGroupItem>
-
-                <RadioGroupItem
-                  value="bulk"
-                  id="bulk"
-                  className="h-12 rounded-full border-0 bg-transparent text-center"
-                >
-                  <div className="flex items-center justify-center h-full">
-                    <span
-                      className={`text-sm font-medium transition-colors duration-200 ${
-                        mode === "bulk" ? "text-white" : "text-slate-600"
-                      }`}
-                    >
-                      Bulk Upload
-                    </span>
-                  </div>
-                </RadioGroupItem>
-              </RadioGroup>
-            </div>
-          </div>
-        </motion.div>
-
-        <AnimatePresence mode="wait">
-          {mode === "single" ? (
+      {/* Mode Toggle */}
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        className="mb-8"
+      >
+        <div className="w-full max-w-lg mx-auto">
+          <div className="relative bg-premium-white border border-premium-border rounded-full p-1 shadow-inner">
+            {/* Moving gradient indicator */}
             <motion.div
-              key="single"
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: 20 }}
-              className="space-y-8"
+              className="absolute inset-y-1 w-1/2 rounded-full bg-black shadow-lg"
+              animate={{
+                left: mode === "single" ? "0.25rem" : "50%",
+              }}
+              transition={{ duration: 0.3, ease: "easeInOut" }}
+            />
+
+            {/* Radio buttons */}
+            <RadioGroup
+              value={mode}
+              onValueChange={handleModeChange}
+              className="relative z-10 grid grid-cols-2"
             >
-              {/* Single Card Upload */}
-              <div className="bg-white border border-slate-200 rounded-2xl p-8 shadow-lg">
-                <h2 className="text-2xl font-semibold text-slate-900 mb-6">
-                  Upload Business Card
-                </h2>
+              <RadioGroupItem
+                value="single"
+                id="single"
+                className="h-12 rounded-full border-0 bg-transparent text-center"
+              >
+                <div className="flex items-center justify-center h-full">
+                  <span
+                    className={`text-sm font-medium transition-colors duration-200 ${
+                      mode === "single" ? "text-premium-white" : "text-premium-gray"
+                    }`}
+                  >
+                    Single Card
+                  </span>
+                </div>
+              </RadioGroupItem>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                  {/* Front Image */}
-                  <div>
-                    <label className="block text-slate-700 mb-2 font-medium">
-                      Front Image *
-                    </label>
-                    <div
-                      className="border-2 border-dashed border-slate-300 rounded-xl p-6 text-center cursor-pointer hover:border-blue-400 hover:bg-blue-50/50 transition-colors"
-                      onDrop={(e) => handleDrop(e, false)}
-                      onDragOver={handleDragOver}
-                      onClick={() => fileInputRef.current?.click()}
-                    >
-                      {frontImage ? (
-                        <div className="space-y-2">
-                          <img
-                            src={URL.createObjectURL(frontImage)}
-                            alt="Front"
-                            className="w-full h-32 object-cover rounded-lg"
-                          />
-                          <p className="text-slate-600 text-sm">
-                            {frontImage.name}
-                          </p>
-                        </div>
-                      ) : (
-                        <div className="space-y-2">
-                          <CloudUpload className="w-8 h-8 text-slate-400 mx-auto" />
-                          <p className="text-slate-600">
-                            Drop front image here or click to select
-                          </p>
-                        </div>
-                      )}
-                    </div>
-                    <input
-                      ref={fileInputRef}
-                      type="file"
-                      accept="image/*"
-                      onChange={(e) => handleFileSelect(e.target.files, false)}
-                      className="hidden"
-                    />
-                  </div>
+              <RadioGroupItem
+                value="bulk"
+                id="bulk"
+                className="h-12 rounded-full border-0 bg-transparent text-center"
+              >
+                <div className="flex items-center justify-center h-full">
+                  <span
+                    className={`text-sm font-medium transition-colors duration-200 ${
+                      mode === "bulk" ? "text-premium-white" : "text-premium-gray"
+                    }`}
+                  >
+                    Bulk Upload
+                  </span>
+                </div>
+              </RadioGroupItem>
+            </RadioGroup>
+          </div>
+        </div>
+      </motion.div>
 
-                  {/* Back Image */}
-                  <div>
-                    <label className="block text-slate-700 mb-2 font-medium">
-                      Back Image (Optional)
-                    </label>
-                    <div
-                      className="border-2 border-dashed border-slate-300 rounded-xl p-6 text-center cursor-pointer hover:border-blue-400 hover:bg-blue-50/50 transition-colors"
-                      onDrop={(e) => handleDrop(e, false)}
-                      onDragOver={handleDragOver}
-                      onClick={() => backFileInputRef.current?.click()}
-                    >
-                      {backImage ? (
-                        <div className="space-y-2">
-                          <img
-                            src={URL.createObjectURL(backImage)}
-                            alt="Back"
-                            className="w-full h-32 object-cover rounded-lg"
-                          />
-                          <p className="text-slate-600 text-sm">
-                            {backImage.name}
-                          </p>
-                        </div>
-                      ) : (
-                        <div className="space-y-2">
-                          <CloudUpload className="w-8 h-8 text-slate-400 mx-auto" />
-                          <p className="text-slate-600">
-                            Drop back image here or click to select
-                          </p>
-                        </div>
-                      )}
-                    </div>
-                    <input
-                      ref={backFileInputRef}
-                      type="file"
-                      accept="image/*"
-                      onChange={(e) => {
-                        if (e.target.files.length > 0) {
-                          setBackImage(e.target.files[0]);
-                        }
-                      }}
-                      className="hidden"
-                    />
+      {/* Main Content */}
+      <AnimatePresence mode="wait">
+        {mode === "single" ? (
+          <motion.div
+            key="single"
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: 20 }}
+            className="space-y-8"
+          >
+            {/* Single Card Upload */}
+            <div className="bg-premium-white border border-premium-border rounded-2xl p-8 shadow-lg">
+              <h2 className="text-2xl font-semibold text-premium-black mb-6">
+                Upload Business Card
+              </h2>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                {/* Front Image */}
+                <div>
+                  <label className="block text-premium-black mb-2 font-medium">
+                    Front Image *
+                  </label>
+                  <div
+                    className="border-2 border-dashed border-premium-border rounded-xl p-6 text-center cursor-pointer hover:border-premium-orange hover:bg-premium-orange-muted transition-colors"
+                    onDrop={(e) => handleDrop(e, false)}
+                    onDragOver={handleDragOver}
+                    onClick={() => fileInputRef.current?.click()}
+                  >
+                    {frontImage ? (
+                      <div className="space-y-2">
+                        <img
+                          src={URL.createObjectURL(frontImage)}
+                          alt="Front"
+                          className="w-full h-32 object-cover rounded-lg"
+                        />
+                        <p className="text-premium-gray text-sm">
+                          {frontImage.name}
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        <CloudUpload className="w-8 h-8 text-premium-gray mx-auto" />
+                        <p className="text-premium-gray">
+                          Drop front image here or click to select
+                        </p>
+                      </div>
+                    )}
                   </div>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => handleFileSelect(e.target.files, false)}
+                    className="hidden"
+                  />
                 </div>
 
-                <Button
-                  onClick={processSingleCard}
-                  disabled={!frontImage || isProcessing}
-                  className="w-full bg-gradient-to-r from-blue-700 via-blue-500 to-cyan-400 hover:from-blue-800 hover:via-blue-600 hover:to-cyan-500 text-white border-0 shadow-lg"
-                >
-                  {isProcessing ? (
-                    <>
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      Processing...
-                    </>
-                  ) : (
-                    <>
-                      <FileText className="w-4 h-4 mr-2" />
-                      Process Card
-                    </>
-                  )}
-                </Button>
+                {/* Back Image */}
+                <div>
+                  <label className="block text-premium-black mb-2 font-medium">
+                    <div className="flex items-center gap-2">
+                      Back Image (Optional)
+                      <div className="relative group">
+                        <Info className="w-4 h-4 text-premium-gray hover:text-premium-orange cursor-help transition-colors" />
+                        <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-premium-black text-premium-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-10">
+                          Adding both front and back images counts as 2 scans
+                          <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-4 border-transparent border-t-premium-black"></div>
+                        </div>
+                      </div>
+                    </div>
+                  </label>
+                  <div
+                    className="border-2 border-dashed border-premium-border rounded-xl p-6 text-center cursor-pointer hover:border-premium-orange hover:bg-premium-orange-muted transition-colors"
+                    onDrop={(e) => handleDrop(e, false)}
+                    onDragOver={handleDragOver}
+                    onClick={() => backFileInputRef.current?.click()}
+                  >
+                    {backImage ? (
+                      <div className="space-y-2">
+                        <img
+                          src={URL.createObjectURL(backImage)}
+                          alt="Back"
+                          className="w-full h-32 object-cover rounded-lg"
+                        />
+                        <p className="text-premium-gray text-sm">
+                          {backImage.name}
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        <CloudUpload className="w-8 h-8 text-premium-gray mx-auto" />
+                        <p className="text-premium-gray">
+                          Drop back image here or click to select
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                  <input
+                    ref={backFileInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => {
+                      if (e.target.files.length > 0) {
+                        setBackImage(e.target.files[0]);
+                      }
+                    }}
+                    className="hidden"
+                  />
+                </div>
               </div>
 
-              {/* Processed Contact Form - Only for Single Mode */}
-              {processedContacts.length > 0 && (
-                  <motion.div
-                    ref={processedContactsRef}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="bg-white border border-slate-200 rounded-2xl p-8 shadow-lg"
-                  >
-                    <h2 className="text-2xl font-semibold text-slate-900 mb-6">
-                      Edit Contact Information
-                    </h2>
+              <Button
+                onClick={processSingleCard}
+                disabled={!frontImage || isProcessing}
+                className="w-full"
+              >
+                {isProcessing ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Processing...
+                  </>
+                ) : (
+                  <>
+                    <FileText className="w-4 h-4 mr-2" />
+                    Process Card
+                  </>
+                )}
+              </Button>
+            </div>
 
-                    {processedContacts.map((contact, index) => (
-                      <div key={index} className="space-y-6">
-                        {/* Source Mode Label */}
-                        {contact.sourceMode && (
-                          <div className="flex items-center gap-2 mb-4">
-                            <span className="text-xs font-medium text-slate-500 uppercase tracking-wide">
-                              Source:
-                            </span>
+            {/* Processed Contact Form - Only for Single Mode */}
+            {processedContacts.length > 0 && (
+                <motion.div
+                  ref={processedContactsRef}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="bg-premium-white border border-premium-border rounded-2xl p-8 shadow-lg"
+                >
+                  <h2 className="text-2xl font-semibold text-premium-black mb-6">
+                    Edit Contact Information
+                  </h2>
+
+                  {processedContacts.map((contact, index) => (
+                    <div key={index} className="space-y-6">
+                      {/* Source Mode Label */}
+                      {contact.sourceMode && (
+                        <div className="flex items-center gap-2 mb-4">
+                          <span className="text-xs font-medium text-premium-gray-light uppercase tracking-wide">
+                            Source:
+                          </span>
+                          <span
+                            className={`px-2 py-1 text-xs font-medium rounded-full ${
+                              contact.sourceMode === "single"
+                                ? "bg-premium-orange-muted text-premium-orange-dark"
+                                : "bg-green-100 text-green-700"
+                            }`}
+                          >
+                            {contact.sourceMode === "single"
+                              ? "Single Card"
+                              : "Bulk Upload"}
+                          </span>
+                        </div>
+                      )}
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-premium-black mb-2 font-medium">
+                            Full Name
+                          </label>
+                          <Input
+                            value={contact.fullName || ""}
+                            onChange={(e) =>
+                              updateContact(index, "fullName", e.target.value)
+                            }
+                            placeholder="Enter full name"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-premium-black mb-2 font-medium">
+                            Job Title
+                          </label>
+                          <Input
+                            value={contact.jobTitle || ""}
+                            onChange={(e) =>
+                              updateContact(index, "jobTitle", e.target.value)
+                            }
+                            placeholder="Enter job title"
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-premium-black mb-2 font-medium">
+                          Company
+                        </label>
+                        <Input
+                          value={contact.company || ""}
+                          onChange={(e) =>
+                            updateContact(index, "company", e.target.value)
+                          }
+                          placeholder="Enter company name"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-premium-black mb-2 font-medium">
+                          Phone Numbers
+                        </label>
+                        <div className="space-y-2">
+                          {(contact.phones || [""]).map(
+                            (phone, phoneIndex) => (
+                              <div key={phoneIndex} className="flex gap-2">
+                                <Input
+                                  value={phone}
+                                  onChange={(e) =>
+                                    updatePhone(
+                                      index,
+                                      phoneIndex,
+                                      e.target.value
+                                    )
+                                  }
+                                  placeholder="Enter phone number"
+                                />
+                                {phoneIndex ===
+                                  (contact.phones || [""]).length - 1 && (
+                                  <Button
+                                    variant="outline"
+                                    size="icon"
+                                    onClick={() => addPhone(index)}
+                                  >
+                                    <Phone className="w-4 h-4" />
+                                  </Button>
+                                )}
+                              </div>
+                            )
+                          )}
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-premium-black mb-2 font-medium">
+                          Email Addresses
+                        </label>
+                        <div className="space-y-2">
+                          {(contact.emails || [""]).map(
+                            (email, emailIndex) => (
+                              <div key={emailIndex} className="flex gap-2">
+                                <Input
+                                  value={email}
+                                  onChange={(e) =>
+                                    updateEmail(
+                                      index,
+                                      emailIndex,
+                                      e.target.value
+                                    )
+                                  }
+                                  placeholder="Enter email address"
+                                />
+                                {emailIndex ===
+                                  (contact.emails || [""]).length - 1 && (
+                                  <Button
+                                    variant="outline"
+                                    size="icon"
+                                    onClick={() => addEmail(index)}
+                                  >
+                                    <Mail className="w-4 h-4" />
+                                  </Button>
+                                )}
+                              </div>
+                            )
+                          )}
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-premium-black mb-2 font-medium">
+                          Websites
+                        </label>
+                        <div className="space-y-2">
+                          {(Array.isArray(contact.websites) ? contact.websites : (contact.websites ? [contact.websites] : [])).map((website, websiteIndex) => (
+                            <div key={websiteIndex} className="flex gap-2">
+                              <Input
+                                value={website}
+                                onChange={(e) => {
+                                  const websites = Array.isArray(contact.websites) ? [...contact.websites] : (contact.websites ? [contact.websites] : []);
+                                  websites[websiteIndex] = e.target.value;
+                                  // Only deduplicate if the value is not empty (user is typing)
+                                  if (e.target.value.trim()) {
+                                    updateContact(index, "websites", deduplicateUrls(websites));
+                                  } else {
+                                    updateContact(index, "websites", websites);
+                                  }
+                                }}
+                                placeholder="Enter website URL"
+                              />
+                              <Button
+                                variant="outline"
+                                size="icon"
+                                onClick={() => {
+                                  const websites = Array.isArray(contact.websites) ? [...contact.websites] : (contact.websites ? [contact.websites] : []);
+                                  websites.splice(websiteIndex, 1);
+                                  updateContact(index, "websites", deduplicateUrls(websites));
+                                }}
+                              >
+                                <X className="w-4 h-4" />
+                              </Button>
+                            </div>
+                          ))}
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="w-full"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              console.log("Add Website button clicked for contact:", index);
+                              const websites = Array.isArray(contact.websites) ? [...contact.websites] : (contact.websites ? [contact.websites] : []);
+                              console.log("Current websites:", websites);
+                              websites.push("");
+                              console.log("New websites array:", websites);
+                              updateContact(index, "websites", websites);
+                            }}
+                          >
+                            <Plus className="w-4 h-4 mr-2" />
+                            Add Website
+                          </Button>
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-premium-black mb-2 font-medium">
+                          Address
+                        </label>
+                        <Input
+                          value={contact.address || ""}
+                          onChange={(e) =>
+                            updateContact(index, "address", e.target.value)
+                          }
+                          placeholder="Enter address"
+                        />
+                      </div>
+                    </div>
+                  ))}
+
+                  {/* Export Buttons */}
+                  <div className="mt-8 space-y-6">
+                    {/* Spreadsheet Export Section */}
+                    <div>
+                      <h3 className="text-lg font-semibold text-slate-800 mb-4">
+                        Spreadsheet Export
+                      </h3>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <Button
+                          onClick={exportXLSX}
+                          className="w-full bg-green-600 hover:bg-green-700"
+                        >
+                          <Download className="w-4 h-4 mr-2" />
+                          Download XLSX{" "}
+                          <span className="text-xs ml-1">(Recommended)</span>
+                        </Button>
+                        <Button 
+                          onClick={exportCSV} 
+                          className="w-full"
+                        >
+                          <Download className="w-4 h-4 mr-2" />
+                          Download CSV
+                        </Button>
+                      </div>
+                    </div>
+
+                    {/* Contact Export Section */}
+                    <div>
+                      <h3 className="text-lg font-semibold text-slate-800 mb-4">
+                        Contact Export
+                      </h3>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <Button
+                          onClick={() => exportVCF(processedContacts[0])}
+                          className="w-full"
+                        >
+                          <Download className="w-4 h-4 mr-2" />
+                          Download VCF
+                        </Button>
+                        <Button
+                          onClick={() => generateQR(processedContacts[0], false)}
+                          className="w-full"
+                        >
+                          <QrCode className="w-4 h-4 mr-2" />
+                          Scan QR
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+
+
+          </motion.div>
+        ) : (
+          <motion.div
+            key="bulk"
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -20 }}
+            className="space-y-8"
+          >
+            {/* Bulk Upload */}
+            <div className="bg-premium-white border border-premium-border rounded-2xl p-8 shadow-lg">
+              <h2 className="text-2xl font-semibold text-premium-black mb-6">
+                Bulk Upload
+              </h2>
+
+              {/* Creative Instruction */}
+              <div className="mb-6 p-4 bg-premium-beige-light border border-premium-border rounded-xl">
+                <div className="flex items-start gap-3">
+                  <div className="flex-shrink-0 w-8 h-8 bg-premium-orange rounded-full flex items-center justify-center">
+                    <span className="text-premium-white text-sm font-bold">✨</span>
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-semibold text-slate-800 mb-1">
+                      Smart Card Processing
+                    </h3>
+                    <p className="text-sm text-premium-gray leading-relaxed">
+                      <span className="font-medium text-premium-orange">Pro Tip:</span> Upload both front and back sides of your business cards! 
+                      Our AI will intelligently merge the information from both sides, creating complete and accurate contact profiles. 
+                      Just drop all your card images - we'll handle the rest! 🚀
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div
+                className="border-2 border-dashed border-premium-border rounded-xl p-12 text-center cursor-pointer hover:border-premium-orange hover:bg-premium-orange-muted transition-colors"
+                onDrop={(e) => handleDrop(e, true)}
+                onDragOver={handleDragOver}
+                onClick={() => bulkFileInputRef.current?.click()}
+              >
+                {bulkImages.length > 0 ? (
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      {bulkImages.map((image, index) => (
+                        <div key={index} className="relative">
+                          <img
+                            src={URL.createObjectURL(image)}
+                            alt={`Card ${index + 1}`}
+                            className="w-full h-24 object-cover rounded-lg"
+                          />
+                          <span className="absolute top-2 right-2 bg-premium-orange text-premium-white text-xs px-2 py-1 rounded-full">
+                            {index + 1}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                    <p className="text-premium-gray">
+                      {bulkImages.length} images selected
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    <CloudUpload className="w-12 h-12 text-premium-gray mx-auto" />
+                    <p className="text-premium-gray text-lg">
+                      Drop multiple images here or click to select
+                    </p>
+                    <p className="text-premium-gray-light text-sm">
+                      Supports JPG, PNG, and other image formats
+                    </p>
+                  </div>
+                )}
+              </div>
+              <input
+                ref={bulkFileInputRef}
+                type="file"
+                accept="image/*"
+                multiple
+                onChange={(e) => handleFileSelect(e.target.files, true)}
+                className="hidden"
+              />
+
+              <Button
+                onClick={processBulkCards}
+                disabled={bulkImages.length === 0 || isProcessing}
+                className="w-full mt-6"
+              >
+                {isProcessing ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Processing...
+                  </>
+                ) : (
+                  <>
+                    <FileText className="w-4 h-4 mr-2" />
+                    Process {bulkImages.length} Cards
+                  </>
+                )}
+              </Button>
+            </div>
+
+            {/* Field Selection - Only for Bulk Mode */}
+            {processedContacts.length > 0 && (
+                <motion.div
+                  ref={bulkProcessedContactsRef}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="bg-premium-beige border border-premium-border rounded-2xl p-8 shadow-lg"
+                >
+                  <h2 className="text-2xl font-semibold text-premium-black mb-6">
+                    Select Fields to Export
+                  </h2>
+
+                  {/* Source Mode Summary */}
+                  <div className="mb-6 p-4 bg-slate-50 rounded-lg">
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="text-sm font-medium text-premium-black">
+                        Processing Summary:
+                      </span>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {processedContacts.map(
+                        (contact, index) =>
+                          contact.sourceMode && (
                             <span
+                              key={index}
                               className={`px-2 py-1 text-xs font-medium rounded-full ${
                                 contact.sourceMode === "single"
-                                  ? "bg-blue-100 text-blue-700"
+                                  ? "bg-premium-orange-muted text-premium-orange-dark"
                                   : "bg-green-100 text-green-700"
                               }`}
                             >
+                              Card {index + 1}:{" "}
                               {contact.sourceMode === "single"
-                                ? "Single Card"
-                                : "Bulk Upload"}
+                                ? "Single"
+                                : "Bulk"}
                             </span>
-                          </div>
-                        )}
-
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          <div>
-                            <label className="block text-slate-700 mb-2 font-medium">
-                              Full Name
-                            </label>
-                            <Input
-                              value={contact.fullName || ""}
-                              onChange={(e) =>
-                                updateContact(index, "fullName", e.target.value)
-                              }
-                              placeholder="Enter full name"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-slate-700 mb-2 font-medium">
-                              Job Title
-                            </label>
-                            <Input
-                              value={contact.jobTitle || ""}
-                              onChange={(e) =>
-                                updateContact(index, "jobTitle", e.target.value)
-                              }
-                              placeholder="Enter job title"
-                            />
-                          </div>
-                        </div>
-
-                        <div>
-                          <label className="block text-slate-700 mb-2 font-medium">
-                            Company
-                          </label>
-                          <Input
-                            value={contact.company || ""}
-                            onChange={(e) =>
-                              updateContact(index, "company", e.target.value)
-                            }
-                            placeholder="Enter company name"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="block text-slate-700 mb-2 font-medium">
-                            Phone Numbers
-                          </label>
-                          <div className="space-y-2">
-                            {(contact.phones || [""]).map(
-                              (phone, phoneIndex) => (
-                                <div key={phoneIndex} className="flex gap-2">
-                                  <Input
-                                    value={phone}
-                                    onChange={(e) =>
-                                      updatePhone(
-                                        index,
-                                        phoneIndex,
-                                        e.target.value
-                                      )
-                                    }
-                                    placeholder="Enter phone number"
-                                  />
-                                  {phoneIndex ===
-                                    (contact.phones || [""]).length - 1 && (
-                                    <Button
-                                      variant="outline"
-                                      size="icon"
-                                      onClick={() => addPhone(index)}
-                                    >
-                                      <Phone className="w-4 h-4" />
-                                    </Button>
-                                  )}
-                                </div>
-                              )
-                            )}
-                          </div>
-                        </div>
-
-                        <div>
-                          <label className="block text-slate-700 mb-2 font-medium">
-                            Email Addresses
-                          </label>
-                          <div className="space-y-2">
-                            {(contact.emails || [""]).map(
-                              (email, emailIndex) => (
-                                <div key={emailIndex} className="flex gap-2">
-                                  <Input
-                                    value={email}
-                                    onChange={(e) =>
-                                      updateEmail(
-                                        index,
-                                        emailIndex,
-                                        e.target.value
-                                      )
-                                    }
-                                    placeholder="Enter email address"
-                                  />
-                                  {emailIndex ===
-                                    (contact.emails || [""]).length - 1 && (
-                                    <Button
-                                      variant="outline"
-                                      size="icon"
-                                      onClick={() => addEmail(index)}
-                                    >
-                                      <Mail className="w-4 h-4" />
-                                    </Button>
-                                  )}
-                                </div>
-                              )
-                            )}
-                          </div>
-                        </div>
-
-                        <div>
-                          <label className="block text-slate-700 mb-2 font-medium">
-                            Websites
-                          </label>
-                          <div className="space-y-2">
-                            {(Array.isArray(contact.websites) ? contact.websites : (contact.websites ? [contact.websites] : [])).map((website, websiteIndex) => (
-                              <div key={websiteIndex} className="flex gap-2">
-                                <Input
-                                  value={website}
-                                  onChange={(e) => {
-                                    const websites = Array.isArray(contact.websites) ? [...contact.websites] : (contact.websites ? [contact.websites] : []);
-                                    websites[websiteIndex] = e.target.value;
-                                    // Only deduplicate if the value is not empty (user is typing)
-                                    if (e.target.value.trim()) {
-                                      updateContact(index, "websites", deduplicateUrls(websites));
-                                    } else {
-                                      updateContact(index, "websites", websites);
-                                    }
-                                  }}
-                                  placeholder="Enter website URL"
-                                />
-                                <Button
-                                  variant="outline"
-                                  size="icon"
-                                  onClick={() => {
-                                    const websites = Array.isArray(contact.websites) ? [...contact.websites] : (contact.websites ? [contact.websites] : []);
-                                    websites.splice(websiteIndex, 1);
-                                    updateContact(index, "websites", deduplicateUrls(websites));
-                                  }}
-                                >
-                                  <X className="w-4 h-4" />
-                                </Button>
-                              </div>
-                            ))}
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              className="w-full"
-                              onClick={(e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                console.log("Add Website button clicked for contact:", index);
-                                const websites = Array.isArray(contact.websites) ? [...contact.websites] : (contact.websites ? [contact.websites] : []);
-                                console.log("Current websites:", websites);
-                                websites.push("");
-                                console.log("New websites array:", websites);
-                                updateContact(index, "websites", websites);
-                              }}
-                            >
-                              <Plus className="w-4 h-4 mr-2" />
-                              Add Website
-                            </Button>
-                          </div>
-                        </div>
-
-                        <div>
-                          <label className="block text-slate-700 mb-2 font-medium">
-                            Address
-                          </label>
-                          <Input
-                            value={contact.address || ""}
-                            onChange={(e) =>
-                              updateContact(index, "address", e.target.value)
-                            }
-                            placeholder="Enter address"
-                          />
-                        </div>
-                      </div>
-                    ))}
-
-                    {/* Export Buttons */}
-                    <div className="mt-8 space-y-6">
-                      {/* Spreadsheet Export Section */}
-                      <div>
-                        <h3 className="text-lg font-semibold text-slate-800 mb-4">
-                          Spreadsheet Export
-                        </h3>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          <Button
-                            onClick={exportXLSX}
-                            className="w-full bg-green-600 hover:bg-green-700"
-                          >
-                            <Download className="w-4 h-4 mr-2" />
-                            Download XLSX{" "}
-                            <span className="text-xs ml-1">(Recommended)</span>
-                          </Button>
-                          <Button 
-                            onClick={exportCSV} 
-                            className="w-full bg-gradient-to-r from-blue-700 via-blue-500 to-cyan-400 hover:from-blue-800 hover:via-blue-600 hover:to-cyan-500 text-white border-0 shadow-lg"
-                          >
-                            <Download className="w-4 h-4 mr-2" />
-                            Download CSV
-                          </Button>
-                        </div>
-                      </div>
-
-                      {/* Contact Export Section */}
-                      <div>
-                        <h3 className="text-lg font-semibold text-slate-800 mb-4">
-                          Contact Export
-                        </h3>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          <Button
-                            onClick={() => exportVCF(processedContacts[0])}
-                            className="w-full bg-gradient-to-r from-blue-700 via-blue-500 to-cyan-400 hover:from-blue-800 hover:via-blue-600 hover:to-cyan-500 text-white border-0 shadow-lg"
-                          >
-                            <Download className="w-4 h-4 mr-2" />
-                            Download VCF
-                          </Button>
-                          <Button
-                            onClick={() => generateQR(processedContacts[0], false)}
-                            className="w-full bg-gradient-to-r from-blue-700 via-blue-500 to-cyan-400 hover:from-blue-800 hover:via-blue-600 hover:to-cyan-500 text-white border-0 shadow-lg"
-                          >
-                            <QrCode className="w-4 h-4 mr-2" />
-                            Scan QR
-                          </Button>
-                        </div>
-                      </div>
-                    </div>
-                  </motion.div>
-                )}
-
-
-            </motion.div>
-          ) : (
-            <motion.div
-              key="bulk"
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -20 }}
-              className="space-y-8"
-            >
-              {/* Bulk Upload */}
-              <div className="bg-white border border-slate-200 rounded-2xl p-8 shadow-lg">
-                <h2 className="text-2xl font-semibold text-slate-900 mb-6">
-                  Bulk Upload
-                </h2>
-
-                {/* Creative Instruction */}
-                <div className="mb-6 p-4 bg-gradient-to-r from-blue-50 to-purple-50 border border-blue-200 rounded-xl">
-                  <div className="flex items-start gap-3">
-                    <div className="flex-shrink-0 w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center">
-                      <span className="text-white text-sm font-bold">✨</span>
-                    </div>
-                    <div>
-                      <h3 className="text-sm font-semibold text-slate-800 mb-1">
-                        Smart Card Processing
-                      </h3>
-                      <p className="text-sm text-slate-600 leading-relaxed">
-                        <span className="font-medium text-blue-600">Pro Tip:</span> Upload both front and back sides of your business cards! 
-                        Our AI will intelligently merge the information from both sides, creating complete and accurate contact profiles. 
-                        Just drop all your card images - we'll handle the rest! 🚀
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                <div
-                  className="border-2 border-dashed border-slate-300 rounded-xl p-12 text-center cursor-pointer hover:border-blue-400 hover:bg-blue-50/50 transition-colors"
-                  onDrop={(e) => handleDrop(e, true)}
-                  onDragOver={handleDragOver}
-                  onClick={() => bulkFileInputRef.current?.click()}
-                >
-                  {bulkImages.length > 0 ? (
-                    <div className="space-y-4">
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                        {bulkImages.map((image, index) => (
-                          <div key={index} className="relative">
-                            <img
-                              src={URL.createObjectURL(image)}
-                              alt={`Card ${index + 1}`}
-                              className="w-full h-24 object-cover rounded-lg"
-                            />
-                            <span className="absolute top-2 right-2 bg-blue-500 text-white text-xs px-2 py-1 rounded-full">
-                              {index + 1}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                      <p className="text-slate-600">
-                        {bulkImages.length} images selected
-                      </p>
-                    </div>
-                  ) : (
-                    <div className="space-y-4">
-                      <CloudUpload className="w-12 h-12 text-slate-400 mx-auto" />
-                      <p className="text-slate-600 text-lg">
-                        Drop multiple images here or click to select
-                      </p>
-                      <p className="text-slate-500 text-sm">
-                        Supports JPG, PNG, and other image formats
-                      </p>
-                    </div>
-                  )}
-                </div>
-                <input
-                  ref={bulkFileInputRef}
-                  type="file"
-                  accept="image/*"
-                  multiple
-                  onChange={(e) => handleFileSelect(e.target.files, true)}
-                  className="hidden"
-                />
-
-                <Button
-                  onClick={processBulkCards}
-                  disabled={bulkImages.length === 0 || isProcessing}
-                  className="w-full mt-6 bg-gradient-to-r from-blue-700 via-blue-500 to-cyan-400 hover:from-blue-800 hover:via-blue-600 hover:to-cyan-500 text-white border-0 shadow-lg"
-                >
-                  {isProcessing ? (
-                    <>
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      Processing...
-                    </>
-                  ) : (
-                    <>
-                      <FileText className="w-4 h-4 mr-2" />
-                      Process {bulkImages.length} Cards
-                    </>
-                  )}
-                </Button>
-              </div>
-
-              {/* Field Selection - Only for Bulk Mode */}
-              {processedContacts.length > 0 && (
-                  <motion.div
-                    ref={bulkProcessedContactsRef}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="bg-white border border-slate-200 rounded-2xl p-8 shadow-lg"
-                  >
-                    <h2 className="text-2xl font-semibold text-slate-900 mb-6">
-                      Select Fields to Export
-                    </h2>
-
-                    {/* Source Mode Summary */}
-                    <div className="mb-6 p-4 bg-slate-50 rounded-lg">
-                      <div className="flex items-center gap-2 mb-2">
-                        <span className="text-sm font-medium text-slate-700">
-                          Processing Summary:
-                        </span>
-                      </div>
-                      <div className="flex flex-wrap gap-2">
-                        {processedContacts.map(
-                          (contact, index) =>
-                            contact.sourceMode && (
-                              <span
-                                key={index}
-                                className={`px-2 py-1 text-xs font-medium rounded-full ${
-                                  contact.sourceMode === "single"
-                                    ? "bg-blue-100 text-blue-700"
-                                    : "bg-green-100 text-green-700"
-                                }`}
-                              >
-                                Card {index + 1}:{" "}
-                                {contact.sourceMode === "single"
-                                  ? "Single"
-                                  : "Bulk"}
-                              </span>
-                            )
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-                      {Object.entries(selectedFields).map(
-                        ([field, checked]) => (
-                          <label
-                            key={field}
-                            className="flex items-center space-x-3 cursor-pointer"
-                          >
-                            <Checkbox
-                              checked={checked}
-                              onCheckedChange={(checked) =>
-                                setSelectedFields((prev) => ({
-                                  ...prev,
-                                  [field]: checked,
-                                }))
-                              }
-                            />
-                            <span className="text-slate-700 capitalize font-medium">
-                              {field === "fullName"
-                                ? "Full Name"
-                                : field === "jobTitle"
-                                ? "Job Title"
-                                : field === "phones"
-                                ? "Phone Numbers"
-                                : field === "emails"
-                                ? "Email Addresses"
-                                : field === "websites"
-                                ? "Websites"
-                                : field}
-                            </span>
-                          </label>
-                        )
+                          )
                       )}
                     </div>
+                  </div>
 
-                    {/* Export Buttons */}
-                    <div className="space-y-6">
-                      {/* Spreadsheet Export Section */}
-                      <div>
-                        <h3 className="text-lg font-semibold text-slate-800 mb-4">
-                          Spreadsheet Export
-                        </h3>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          <Button
-                            onClick={exportXLSX}
-                            className="w-full bg-green-600 hover:bg-green-700"
-                          >
-                            <Download className="w-4 h-4 mr-2" />
-                            Download XLSX{" "}
-                            <span className="text-xs ml-1">(Recommended)</span>
-                          </Button>
-                                                     <Button onClick={exportCSV} className="w-full bg-gradient-to-r from-blue-700 via-blue-500 to-cyan-400 hover:from-blue-800 hover:via-blue-600 hover:to-cyan-500 text-white border-0 shadow-lg">
-                            <Download className="w-4 h-4 mr-2" />
-                            Download CSV
-                          </Button>
-                        </div>
-                      </div>
-
-                      {/* Contact Export Section */}
-                      <div>
-                        <h3 className="text-lg font-semibold text-slate-800 mb-4">
-                          Contact Export
-                        </h3>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          <Button onClick={exportBulkVCF} className="w-full bg-gradient-to-r from-blue-700 via-blue-500 to-cyan-400 hover:from-blue-800 hover:via-blue-600 hover:to-cyan-500 text-white border-0 shadow-lg">
-                            <Download className="w-4 h-4 mr-2" />
-                            Download VCF
-                          </Button>
-                          <Button
-                            onClick={() =>
-                              generateQR(processedContacts[0], true)
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+                    {Object.entries(selectedFields).map(
+                      ([field, checked]) => (
+                        <label
+                          key={field}
+                          className="flex items-center space-x-3 cursor-pointer"
+                        >
+                          <Checkbox
+                            checked={checked}
+                            onCheckedChange={(checked) =>
+                              setSelectedFields((prev) => ({
+                                ...prev,
+                                [field]: checked,
+                              }))
                             }
-                            className="w-full bg-gradient-to-r from-blue-700 via-blue-500 to-cyan-400 hover:from-blue-800 hover:via-blue-600 hover:to-cyan-500 text-white border-0 shadow-lg"
-                          >
-                            <QrCode className="w-4 h-4 mr-2" />
-                            Scan QR
-                          </Button>
-                        </div>
+                          />
+                          <span className="text-premium-black capitalize font-medium">
+                            {field === "fullName"
+                              ? "Full Name"
+                              : field === "jobTitle"
+                              ? "Job Title"
+                              : field === "phones"
+                              ? "Phone Numbers"
+                              : field === "emails"
+                              ? "Email Addresses"
+                              : field === "websites"
+                              ? "Websites"
+                              : field}
+                          </span>
+                        </label>
+                      )
+                    )}
+                  </div>
+
+                  {/* Export Buttons */}
+                  <div className="space-y-6">
+                    {/* Spreadsheet Export Section */}
+                    <div>
+                      <h3 className="text-lg font-semibold text-slate-800 mb-4">
+                        Spreadsheet Export
+                      </h3>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <Button
+                          onClick={exportXLSX}
+                          className="w-full bg-green-600 hover:bg-green-700"
+                        >
+                          <Download className="w-4 h-4 mr-2" />
+                          Download XLSX{" "}
+                          <span className="text-xs ml-1">(Recommended)</span>
+                        </Button>
+                                                     <Button onClick={exportCSV} className="w-full">
+                          <Download className="w-4 h-4 mr-2" />
+                          Download CSV
+                        </Button>
                       </div>
                     </div>
-                  </motion.div>
-                )}
+
+                    {/* Contact Export Section */}
+                    <div>
+                      <h3 className="text-lg font-semibold text-slate-800 mb-4">
+                        Contact Export
+                      </h3>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <Button onClick={exportBulkVCF} className="w-full">
+                          <Download className="w-4 h-4 mr-2" />
+                          Download VCF
+                        </Button>
+                        <Button
+                          onClick={() =>
+                            generateQR(processedContacts[0], true)
+                          }
+                          className="w-full"
+                        >
+                          <QrCode className="w-4 h-4 mr-2" />
+                          Scan QR
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                </motion.div>
+              )}
 
 
-            </motion.div>
-          )}
-        </AnimatePresence>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+
+  return (
+    <div className="min-h-screen bg-premium-beige">
+      {/* Mobile sidebar overlay */}
+      {mobileMenuOpen && (
+        <div 
+          className="fixed inset-0 bg-premium-black bg-opacity-50 z-40 md:hidden"
+          onClick={() => setMobileMenuOpen(false)}
+        />
+      )}
+
+      {/* Mobile Sidebar */}
+      <div className={`fixed inset-y-0 left-0 z-50 w-64 bg-premium-white shadow-xl transform transition-transform duration-300 ease-in-out md:hidden ${
+        mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
+      }`}>
+        <div className="flex flex-col h-full">
+          {/* Sidebar Header */}
+          <div className="flex items-center justify-between p-4 border-b border-premium-border">
+            <div className="flex items-center">
+              <img 
+                src="/logo-black.png" 
+                alt="Super Scanner Logo" 
+                className="h-8 w-8 mr-3 object-contain"
+              />
+              <h1 className="text-lg font-bold text-premium-black">Super Scanner</h1>
+            </div>
+            <button
+              onClick={() => setMobileMenuOpen(false)}
+              className="p-2 rounded-lg text-premium-gray hover:bg-premium-beige hover:text-premium-black transition-colors duration-200"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+
+          {/* User Profile Section */}
+          <div className="p-4 border-b border-premium-border">
+            <div className="flex items-center space-x-3">
+              <div className="h-10 w-10 bg-premium-orange rounded-full flex items-center justify-center shadow-sm">
+                <span className="text-sm font-bold text-premium-white">
+                  {userProfile ? (userProfile.firstName?.[0] || 'U') : 'U'}
+                </span>
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="font-semibold text-premium-black truncate">
+                  {userProfile ? `${userProfile.firstName} ${userProfile.lastName}` : 'User Account'}
+                </p>
+                <p className="text-xs text-premium-gray truncate">
+                  {userProfile?.currentPlan?.name || 'Free Plan'}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Navigation Menu */}
+          <div className="flex-1 px-4 py-4 space-y-2">
+            {menuItems.map((item) => {
+              const Icon = item.icon;
+              return (
+                <button
+                  key={item.id}
+                  onClick={() => {
+                    setActiveTab(item.id);
+                    setMobileMenuOpen(false);
+                  }}
+                  className={`w-full flex items-center px-3 py-3 rounded-lg text-sm font-medium transition-all duration-200 ${
+                    activeTab === item.id
+                      ? 'bg-premium-black text-premium-white shadow-md'
+                      : 'text-premium-gray hover:bg-premium-beige hover:text-premium-black'
+                  }`}
+                >
+                  <Icon className={`h-5 w-5 mr-3 ${activeTab === item.id ? 'text-premium-white' : 'text-premium-gray'}`} />
+                  {item.label}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Logout Button */}
+          <div className="p-4 border-t border-premium-border">
+            <button
+              onClick={() => {
+                logout();
+                setMobileMenuOpen(false);
+              }}
+              className="w-full flex items-center justify-center px-3 py-3 text-premium-gray hover:bg-premium-orange-muted hover:text-premium-orange-dark rounded-lg transition-all duration-200 text-sm font-medium"
+            >
+              <LogOut className="h-5 w-5 mr-3" />
+              Logout
+            </button>
+          </div>
+        </div>
       </div>
+
+      {/* Navbar */}
+      <nav className="bg-premium-white shadow-sm border-b border-premium-border">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center h-20">
+            {/* Logo and Brand */}
+            <div className="flex items-center">
+              <img 
+                src="/logo-black.png" 
+                alt="Super Scanner Logo" 
+                className="h-8 w-8 mr-3 object-contain"
+              />
+              <h1 className="text-xl font-bold text-premium-black">Super Scanner</h1>
+            </div>
+
+            {/* Navigation Items - Desktop */}
+            <div className="hidden md:flex items-center space-x-8">
+              {menuItems.map((item) => {
+                const Icon = item.icon;
+                return (
+                  <button
+                    key={item.id}
+                    onClick={() => setActiveTab(item.id)}
+                    className={`flex items-center px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
+                      activeTab === item.id
+                        ? 'bg-black text-white shadow-md'
+                        : 'text-premium-gray hover:bg-premium-beige hover:text-premium-black'
+                    }`}
+                  >
+                    <Icon className={`h-4 w-4 mr-2 ${activeTab === item.id ? 'text-white' : 'text-premium-gray'}`} />
+                    {item.label}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* User Profile and Actions - Desktop */}
+            <div className="flex items-center space-x-4">
+              {/* User Info - Desktop */}
+              <div className="hidden sm:flex items-center space-x-3">
+                <div className="h-8 w-8 bg-premium-orange rounded-full flex items-center justify-center shadow-sm">
+                  <span className="text-xs font-bold text-premium-white">
+                    {userProfile ? (userProfile.firstName?.[0] || 'U') : 'U'}
+                  </span>
+                </div>
+                <div className="text-sm">
+                  <p className="font-semibold text-premium-black">
+                    {userProfile ? `${userProfile.firstName} ${userProfile.lastName}` : 'User Account'}
+                  </p>
+                  <p className="text-xs text-premium-gray">
+                    {userProfile?.currentPlan?.name || 'Free Plan'}
+                  </p>
+                </div>
+              </div>
+
+              {/* Logout Button - Desktop */}
+              <button
+                onClick={logout}
+                className="hidden sm:flex items-center px-3 py-2 text-premium-gray hover:bg-premium-orange-muted hover:text-premium-orange-dark rounded-lg transition-all duration-200 text-sm font-medium"
+                title="Logout"
+              >
+                <LogOut className="h-4 w-4 mr-2" />
+                Logout
+              </button>
+
+              {/* Mobile Menu Button */}
+              <button
+                onClick={() => setMobileMenuOpen(true)}
+                className="md:hidden p-2 rounded-lg text-premium-gray hover:bg-premium-beige hover:text-premium-black transition-colors duration-200"
+                title="Open menu"
+              >
+                <Menu className="h-6 w-6" />
+              </button>
+            </div>
+          </div>
+        </div>
+      </nav>
+
+      {/* Main content */}
+      <main className="flex-1 overflow-y-auto">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+          <motion.div
+            key={activeTab}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3 }}
+          >
+            {renderContent()}
+          </motion.div>
+        </div>
+      </main>
 
       {/* QR Modal */}
       <Dialog open={qrModalOpen} onOpenChange={setQrModalOpen}>
@@ -1053,11 +1323,17 @@ const BusinessCardApp = () => {
             <DialogTitle>
               {qrMode === "bulk" ? "Bulk Contacts QR Code" : "Contact QR Code"}
             </DialogTitle>
+            <DialogDescription>
+              {qrMode === "bulk" 
+                ? "Scan this QR code to save multiple contacts to your phone" 
+                : "Scan this QR code to save this contact to your phone"
+              }
+            </DialogDescription>
           </DialogHeader>
           <div className="text-center space-y-4">
             {qrData ? (
               <>
-                <div className="bg-white p-4 rounded-lg">
+                <div className="bg-premium-beige p-4 rounded-lg">
                   <img
                     src={qrData}
                     alt="QR Code"
@@ -1068,7 +1344,7 @@ const BusinessCardApp = () => {
                 {/* Instructions based on mode */}
                 {qrMode === "bulk" ? (
                   <div className="space-y-3">
-                    <p className="text-sm text-slate-600">
+                    <p className="text-sm text-premium-gray">
                       📱 Scan this QR code with your phone's camera or contact
                       app
                     </p>
@@ -1084,13 +1360,13 @@ const BusinessCardApp = () => {
                     </Button>
                   </div>
                 ) : (
-                  <p className="text-sm text-slate-600">
+                  <p className="text-sm text-premium-gray">
                     📱 Scan this QR code to save this contact
                   </p>
                 )}
               </>
             ) : (
-              <div className="text-slate-500 py-8">
+              <div className="text-premium-gray-light py-8">
                 <QrCode className="w-16 h-16 mx-auto mb-4 text-slate-300" />
                 <p>Generating QR code...</p>
               </div>

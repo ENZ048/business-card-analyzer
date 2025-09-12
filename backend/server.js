@@ -5,8 +5,14 @@ const http = require("http");
 const cors = require("cors");
 const cookieParser = require("cookie-parser");
 
+// Database connection
+const connectDB = require("./config/database");
+
 const ocrRoutes = require("./routes/ocrRoutes");
 const exportRoutes = require("./routes/exportRoutes");
+const userRoutes = require("./routes/userRoutes");
+const planRoutes = require("./routes/planRoutes");
+const adminRoutes = require("./routes/adminRoutes");
 
 const app = express();
 const server = http.createServer(app);
@@ -18,9 +24,15 @@ app.use(cors({ origin: "*", credentials: true }));
 app.use(express.json());
 app.use(cookieParser());
 
+// ---------- Connect to Database ----------
+connectDB();
+
 // ---------- API Routes ----------
 app.use("/api/ocr", ocrRoutes);
 app.use("/api/export", exportRoutes);
+app.use("/api/users", userRoutes);
+app.use("/api/plans", planRoutes);
+app.use("/api/admin", adminRoutes);
 
 // ---------- Serve frontend build (static) ----------
 /*
@@ -32,7 +44,7 @@ app.use(express.static(buildPath, { maxAge: "30d" }));
 
 // ---------- Default API root (health) ----------
 app.get("/api", (req, res) => {
-  return res.json({ ok: true, msg: "Business Card OCR Backend API" });
+  return res.json({ ok: true, msg: "Super Scanner Backend API" });
 });
 
 // ---------- Root route & SPA fallback ----------
@@ -48,7 +60,7 @@ app.get("/", (req, res, next) => {
     return res.sendFile(indexFile);
   } catch (err) {
     // fallback to simple text when build not available
-    return res.send("✅ Business Card OCR Backend Running");
+    return res.send("✅ Super Scanner Backend Running");
   }
 });
 

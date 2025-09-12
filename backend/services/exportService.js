@@ -383,8 +383,8 @@ function generateXLSX(contacts, fields) {
   });
 
   // Add worksheet to workbook
-  workbook.Sheets = { "Business Cards": worksheet };
-  workbook.SheetNames = ["Business Cards"];
+  workbook.Sheets = { "Super Scanner": worksheet };
+  workbook.SheetNames = ["Super Scanner"];
 
   // Generate buffer
   const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });

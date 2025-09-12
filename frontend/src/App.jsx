@@ -1,25 +1,30 @@
-import BusinessCardApp from './components/BusinessCardApp'
-import { ToastContainer } from 'react-toastify'
-import 'react-toastify/dist/ReactToastify.css'
+import React from 'react';
+import { ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
+import { AuthProvider } from './contexts/AuthContext';
+import { PlanProvider } from './contexts/PlanContext';
+import AppRouter from './components/AppRouter';
 
 function App() {
   return (
-    <>
-      <BusinessCardApp />
-      <ToastContainer
-        position="top-right"
-        autoClose={3000}
-        hideProgressBar={false}
-        newestOnTop={false}
-        closeOnClick
-        rtl={false}
-        pauseOnFocusLoss
-        draggable
-        pauseOnHover
-        theme="light"
-      />
-    </>
-  )
+    <AuthProvider>
+      <PlanProvider>
+        <AppRouter />
+        <ToastContainer
+          position="top-right"
+          autoClose={5000}
+          hideProgressBar={false}
+          newestOnTop={false}
+          closeOnClick
+          rtl={false}
+          pauseOnFocusLoss
+          draggable
+          pauseOnHover
+          theme="light"
+        />
+      </PlanProvider>
+    </AuthProvider>
+  );
 }
 
-export default App
+export default App;
