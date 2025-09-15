@@ -4,7 +4,7 @@ import react from '@vitejs/plugin-react'
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react()],
-  base: '/login/', // Base path for WordPress integration
+  base: '/', // Base path for WordPress integration
   build: {
     outDir: 'dist',
     assetsDir: 'assets'
