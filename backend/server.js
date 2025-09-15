@@ -31,7 +31,8 @@ const corsOptions = {
     "https://login.superscanai.com",   // React UI (production)
     "https://api.superscanai.com",     // API origin (if needed)
     "https://superscanai.com",         // WordPress root (optional)
-    "https://www.superscanai.com"
+    "https://www.superscanai.com",
+    "https://login.superscanai.com"
   ],
   credentials: true,
   optionsSuccessStatus: 200
