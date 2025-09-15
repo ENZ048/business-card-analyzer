@@ -16,13 +16,7 @@ export const API_CONFIG = {
   RETRY_DELAY: 1000, // 1 second
 };
 
-// Environment-based configuration
+// Simple configuration - no environment variables
 export const getApiBaseUrl = () => {
-  // Check for environment variable first
-  if (import.meta.env.VITE_API_BASE_URL) {
-    return import.meta.env.VITE_API_BASE_URL;
-  }
-  
-  // Fall back to config file
   return API_CONFIG.BASE_URL;
 };
