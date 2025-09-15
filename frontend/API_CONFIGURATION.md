@@ -26,9 +26,14 @@ export const API_CONFIG = {
 VITE_API_BASE_URL=http://localhost:5000
 ```
 
+### Production (Current Setup)
+```bash
+VITE_API_BASE_URL=https://api.superscanai.com
+```
+
 ### Production
 ```bash
-VITE_API_BASE_URL=https://api.yourdomain.com
+VITE_API_BASE_URL=https://api.superscanai.com
 ```
 
 ### Different Port

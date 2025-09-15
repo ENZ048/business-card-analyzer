@@ -1,9 +1,9 @@
-# SuperScan WordPress Integration Deployment Guide
+# SuperScan Deployment Guide
 
 ## Prerequisites
-- WordPress site running at https://superscanai.com/
-- Backend API deployed and accessible
-- React app built with `/login/` base path
+- Frontend deployed at https://login.superscanai.com/
+- Backend API deployed at https://api.superscanai.com/
+- WordPress site running at https://superscanai.com/ (optional)
 
 ## Step 1: Install Dependencies
 ```bash
@@ -13,66 +13,69 @@ npm install
 
 ## Step 2: Configure Environment
 1. Copy `production.env` to `.env.production`
-2. Update the API URL in `.env.production`:
+2. The API URL is already configured for production:
    ```
-   VITE_API_BASE_URL=https://your-backend-api-url.com
+   VITE_API_BASE_URL=https://api.superscanai.com
    ```
 
 ## Step 3: Build the React App
 ```bash
-# Option 1: Using the new script
-npm run build:login
-
-# Option 2: Using the command directly
-npm run build -- --base=/login/
+# Build for production deployment
+npm run build
 ```
 
-## Step 4: Deploy to WordPress
-1. Upload the contents of `frontend/dist/` to `superscanai.com/login/`
+## Step 4: Deploy to Frontend Server
+1. Upload the contents of `frontend/dist/` to your frontend server at `login.superscanai.com`
 2. Your file structure should look like:
    ```
-   superscanai.com/
-   ├── index.php (WordPress)
-   ├── wp-content/ (WordPress)
-   ├── login/ (Your React app)
-   │   ├── index.html
-   │   ├── assets/
-   │   │   ├── index-[hash].js
-   │   │   └── index-[hash].css
-   │   └── ...
+   login.superscanai.com/
+   ├── index.html
+   ├── assets/
+   │   ├── index-[hash].js
+   │   └── index-[hash].css
+   └── ...
    ```
 
-## Step 5: Update WordPress Configuration
-1. Add the `.htaccess` rules from `wordpress-integration/.htaccess` to your WordPress `.htaccess` file
-2. Update your login button to point to `https://superscanai.com/login/`
-
-## Step 6: Update Backend CORS
-Make sure your backend allows requests from:
-- https://superscanai.com
+## Step 5: Update Backend CORS
+The backend is already configured to allow requests from:
+- https://login.superscanai.com (your frontend)
+- https://superscanai.com (WordPress root)
 - https://www.superscanai.com
 
+## Step 6: WordPress Integration (Optional)
+If you want to integrate with WordPress:
+1. Add the `.htaccess` rules from `wordpress-integration/.htaccess` to your WordPress `.htaccess` file
+2. Update your login button to point to `https://login.superscanai.com/`
+
 ## Step 7: Test the Integration
-1. Visit https://superscanai.com/
-2. Click the login button
-3. Verify you're redirected to https://superscanai.com/login/
-4. Test the React app functionality
+1. Visit https://login.superscanai.com/
+2. Test the React app functionality
+3. Verify API calls are working to https://api.superscanai.com
+4. Test user registration and login
 
 ## Troubleshooting
-- If assets don't load, check that the base path is correctly set to `/login/`
-- If API calls fail, verify CORS configuration in backend
-- If routing doesn't work, ensure `.htaccess` rules are properly configured
+- If assets don't load, check your web server configuration
+- If API calls fail, verify CORS configuration in backend allows `https://login.superscanai.com`
+- If authentication fails, check JWT_SECRET and database connection
+- Check browser console for any CORS or network errors
 
 ## File Structure After Deployment
 ```
-superscanai.com/
-├── index.php (WordPress)
-├── wp-content/ (WordPress)
-├── .htaccess (Updated with React routing rules)
-├── login/ (React app)
-│   ├── index.html
-│   ├── assets/
-│   │   ├── index-[hash].js
-│   │   └── index-[hash].css
-│   └── ...
+login.superscanai.com/ (Frontend)
+├── index.html
+├── assets/
+│   ├── index-[hash].js
+│   └── index-[hash].css
+└── ...
+
+api.superscanai.com/ (Backend)
+├── server.js
+├── routes/
+├── controllers/
+└── ...
+
+superscanai.com/ (WordPress - Optional)
+├── index.php
+├── wp-content/
 └── ...
 ```

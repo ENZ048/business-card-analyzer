@@ -18,14 +18,20 @@ const adminRoutes = require("./routes/adminRoutes");
 const app = express();
 const server = http.createServer(app);
 
+// Trust proxy so secure cookies work behind nginx/Load balancer
+// (nginx terminates TLS and forwards requests to this app)
+app.set("trust proxy", 1);
+
 // ---------- Middlewares ----------
 // CORS configuration for production
 const corsOptions = {
   origin: [
-    "http://localhost:3000", // Development
-    "https://superscanai.com", // Production WordPress site
-    "https://www.superscanai.com", // Production with www
-    "https://app.superscanai.com" // If using subdomain approach
+    "http://localhost:5173",           // local dev (Vite default port)
+    "http://localhost:3000",           // local dev (alternative)
+    "https://login.superscanai.com",   // React UI (production)
+    "https://api.superscanai.com",     // API origin (if needed)
+    "https://superscanai.com",         // WordPress root (optional)
+    "https://www.superscanai.com"
   ],
   credentials: true,
   optionsSuccessStatus: 200
@@ -35,8 +41,8 @@ const corsOptions = {
 if (process.env.NODE_ENV === "production") {
   app.use(cors(corsOptions));
 } else {
-  // In dev allow the dev origin and allow credentials
-  app.use(cors({ origin: true, credentials: true }));
+  // In dev allow local dev origin and credentials
+  app.use(cors({ origin: ["http://localhost:5173", "http://localhost:3000"], credentials: true }));
 }
 
 app.use(express.json());
@@ -53,9 +59,9 @@ app.use("/api/plans", planRoutes);
 app.use("/api/admin", adminRoutes);
 
 // ---------- Serve frontend build (static) ----------
-// Prefer explicit env var to avoid path mismatch in production
+// Default to the build_login folder you created earlier; allow overriding via env
 const buildPath = process.env.FRONTEND_BUILD_PATH
-  || path.join(__dirname, "..", "frontend", "dist"); // change if your actual build path differs
+  || path.join(__dirname, "..", "frontend", "build_login"); // matches your build path
 
 if (fs.existsSync(buildPath)) {
   app.use(express.static(buildPath, { maxAge: "30d" }));
@@ -67,6 +73,7 @@ app.get("/api", (req, res) => {
 });
 
 // ---------- Root route & SPA fallback ----------
+// Serve index.html for non-API requests if build present
 app.get("/", (req, res, next) => {
   if (req.path.startsWith("/api")) return next();
 
@@ -87,6 +94,26 @@ app.get("*", (req, res, next) => {
   }
   return res.status(404).send("Not Found");
 });
+
+// ---------- Helper: set auth cookie (example) ----------
+// Use this function in your auth route after successful login to set cookie correctly.
+// Example usage:
+//   setAuthCookie(res, token);
+function setAuthCookie(res, token, opts = {}) {
+  const cookieOptions = {
+    httpOnly: true,
+    secure: true,                  // requires HTTPS (nginx will handle TLS)
+    sameSite: "none",              // allow cross-site cookies between subdomains
+    domain: ".superscanai.com",    // cookie valid for all subdomains
+    path: "/",
+    maxAge: 1000 * 60 * 60 * 24 * 30, // 30 days
+    ...opts
+  };
+  res.cookie("token", token, cookieOptions);
+}
+
+// Export helper if you want to use in controllers
+module.exports.setAuthCookie = setAuthCookie;
 
 // ---------- Start Server ----------
 const PORT = process.env.PORT || 5000;
