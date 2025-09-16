@@ -14,7 +14,7 @@ const AppRouter = () => {
   }
 
   return (
-    <BrowserRouter basename="/login">
+    <BrowserRouter>
       <Routes>
         {/* If user is not authenticated, show auth page */}
         {!isAuthenticated ? (
