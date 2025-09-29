@@ -28,7 +28,10 @@ const UserUsage = () => {
       setIsLoading(true);
       try {
         const response = await apiService.getUserUsage();
+        console.log('Usage API Response:', response);
         if (response.success) {
+          console.log('Usage data received:', response.data);
+          console.log('Total cards from API:', response.data.totalCards);
           setUsageData(response.data);
         } else {
           console.error('Failed to fetch usage data:', response.message);
@@ -40,8 +43,8 @@ const UserUsage = () => {
           totalCards: 0,
           thisMonth: 0,
           lastMonth: 0,
-          planLimit: 100,
-          planType: 'Free',
+          planLimit: 1000,
+          planType: 'Starter Plan',
           recentActivity: []
         };
         setUsageData(mockData);
@@ -120,7 +123,9 @@ const UserUsage = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-premium-gray text-sm font-medium">Plan Limit</p>
-                <p className="text-3xl font-bold text-premium-black">{usageData.planLimit}</p>
+                <p className="text-3xl font-bold text-premium-black">
+                  {usageData.planLimit} <span className="text-lg font-normal">cards</span>
+                </p>
               </div>
               <div className="h-12 w-12 bg-premium-orange-muted rounded-lg flex items-center justify-center">
                 <BarChart3 className="h-6 w-6 text-premium-orange" />

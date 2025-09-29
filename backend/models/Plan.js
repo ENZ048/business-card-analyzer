@@ -56,10 +56,10 @@ planSchema.statics.getDefaultPlans = function() {
       displayName: 'Starter Plan',
       description: 'Perfect for individuals and small businesses',
       cardScansLimit: 1000,
-      validityMonths: 12,
+      validityMonths: 1,
       price: 0,
       features: [
-        '1,000 card scans per year',
+        '1,000 card scans per month',
         'Basic OCR processing',
         'Export to CSV, XLSX, VCF',
         'QR code generation',

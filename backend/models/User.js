@@ -24,6 +24,16 @@ const userSchema = new mongoose.Schema({
     required: true,
     trim: true
   },
+  companyName: {
+    type: String,
+    required: true,
+    trim: true
+  },
+  phoneNumber: {
+    type: String,
+    required: true,
+    trim: true
+  },
   currentPlan: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Plan',

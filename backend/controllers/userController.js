@@ -1,3 +1,4 @@
+const mongoose = require('mongoose');
 const User = require('../models/User');
 const Usage = require('../models/Usage');
 const Plan = require('../models/Plan');
@@ -14,10 +15,10 @@ const generateToken = (userId) => {
 // User registration
 const register = async (req, res) => {
   try {
-    const { firstName, lastName, email, password } = req.body;
+    const { firstName, lastName, email, password, companyName, phoneNumber } = req.body;
 
     // Validation
-    if (!firstName || !lastName || !email || !password) {
+    if (!firstName || !lastName || !email || !password || !companyName || !phoneNumber) {
       return res.status(400).json({
         success: false,
         message: 'All fields are required'
@@ -40,12 +41,31 @@ const register = async (req, res) => {
       });
     }
 
+    // Get or create starter plan
+    let starterPlan = await Plan.findOne({ name: 'starter' });
+    if (!starterPlan) {
+      // Create default plans if they don't exist
+      const defaultPlans = Plan.getDefaultPlans();
+      await Plan.insertMany(defaultPlans);
+      starterPlan = await Plan.findOne({ name: 'starter' });
+    }
+
+    // Calculate plan end date (30 days from now)
+    const planStartDate = new Date();
+    const planEndDate = new Date();
+    planEndDate.setDate(planEndDate.getDate() + 30);
+
     // Create new user
     const user = new User({
       firstName,
       lastName,
       email: email.toLowerCase(),
-      password
+      password,
+      companyName,
+      phoneNumber,
+      currentPlan: starterPlan._id,
+      planStartDate,
+      planEndDate
     });
 
     await user.save();
@@ -62,7 +82,18 @@ const register = async (req, res) => {
         firstName: user.firstName,
         lastName: user.lastName,
         email: user.email,
-        role: user.role
+        companyName: user.companyName,
+        phoneNumber: user.phoneNumber,
+        role: user.role,
+        currentPlan: {
+          id: starterPlan._id,
+          name: starterPlan.name,
+          displayName: starterPlan.displayName,
+          cardScansLimit: starterPlan.cardScansLimit,
+          validityMonths: starterPlan.validityMonths
+        },
+        planStartDate: user.planStartDate,
+        planEndDate: user.planEndDate
       }
     });
   } catch (error) {
@@ -130,6 +161,8 @@ const login = async (req, res) => {
         firstName: user.firstName,
         lastName: user.lastName,
         email: user.email,
+        companyName: user.companyName,
+        phoneNumber: user.phoneNumber,
         role: user.role
       }
     });
@@ -155,30 +188,42 @@ const getUserUsage = async (req, res) => {
 
     // Get current usage
     const currentUsage = await Usage.findOne({ 
-      user: userId, 
+      user: new mongoose.Types.ObjectId(userId), 
       year: currentYear, 
       month: currentMonth 
     });
 
     // Get last month usage
     const lastMonthUsage = await Usage.findOne({ 
-      user: userId, 
+      user: new mongoose.Types.ObjectId(userId), 
       year: lastMonthYear, 
       month: lastMonth 
     });
 
     // Get total usage across all time
     const totalUsage = await Usage.aggregate([
-      { $match: { user: userId } },
+      { $match: { user: new mongoose.Types.ObjectId(userId) } },
       { $group: { _id: null, totalCards: { $sum: '$cardScansUsed' } } }
     ]);
+    
+    console.log('Total usage aggregation result:', totalUsage);
+    console.log('Total cards calculated:', totalUsage.length > 0 ? totalUsage[0].totalCards : 0);
+
+    // Debug: Check all usage records for this user
+    const allUsageForUser = await Usage.find({ user: new mongoose.Types.ObjectId(userId) });
+    console.log('All usage records for user:', allUsageForUser.map(u => ({ 
+      year: u.year, 
+      month: u.month, 
+      cardScansUsed: u.cardScansUsed,
+      activities: u.activities?.length || 0
+    })));
 
     // Get user's current plan
     const user = await User.findById(userId).populate('currentPlan');
     const plan = user.currentPlan;
 
     // Get recent activity from all usage records
-    const allUsageRecords = await Usage.find({ user: userId })
+    const allUsageRecords = await Usage.find({ user: new mongoose.Types.ObjectId(userId) })
       .sort({ createdAt: -1 })
       .populate('plan', 'name')
       .select('activities year month createdAt');
@@ -216,6 +261,8 @@ const getUserUsage = async (req, res) => {
       planId: plan ? plan._id : null,
       recentActivity: recentActivity
     };
+
+    console.log('Final usage data being sent:', usageData);
 
     res.json({
       success: true,
@@ -301,11 +348,22 @@ const changePassword = async (req, res) => {
 // Get user profile
 const getUserProfile = async (req, res) => {
   try {
+    console.log('getUserProfile called with userId:', req.user.id);
     const userId = req.user.id;
     
     const user = await User.findById(userId)
       .populate('currentPlan', 'name cardScansLimit price')
       .select('-password');
+
+    console.log('Found user:', user ? 'Yes' : 'No');
+    if (user) {
+      console.log('User data:', {
+        firstName: user.firstName,
+        lastName: user.lastName,
+        email: user.email,
+        currentPlan: user.currentPlan
+      });
+    }
 
     if (!user) {
       return res.status(404).json({
@@ -316,7 +374,7 @@ const getUserProfile = async (req, res) => {
 
     res.json({
       success: true,
-      data: user
+      user: user
     });
   } catch (error) {
     console.error('Error fetching user profile:', error);
@@ -332,13 +390,13 @@ const getUserProfile = async (req, res) => {
 const updateUserProfile = async (req, res) => {
   try {
     const userId = req.user.id;
-    const { firstName, lastName, email } = req.body;
+    const { firstName, lastName, email, companyName, phoneNumber } = req.body;
 
     // Validate input
-    if (!firstName || !lastName || !email) {
+    if (!firstName || !lastName || !email || !companyName || !phoneNumber) {
       return res.status(400).json({
         success: false,
-        message: 'First name, last name, and email are required'
+        message: 'First name, last name, email, company name, and phone number are required'
       });
     }
 
@@ -362,6 +420,8 @@ const updateUserProfile = async (req, res) => {
         firstName, 
         lastName, 
         email: email.toLowerCase(),
+        companyName,
+        phoneNumber,
         updatedAt: new Date()
       },
       { new: true, runValidators: true }
@@ -378,7 +438,7 @@ const updateUserProfile = async (req, res) => {
     res.json({
       success: true,
       message: 'Profile updated successfully',
-      data: user
+      user: user
     });
   } catch (error) {
     console.error('Error updating user profile:', error);
@@ -399,14 +459,14 @@ const getProcessingHistory = async (req, res) => {
     const skip = (page - 1) * limit;
 
     // Get processing history from usage records
-    const history = await Usage.find({ user: userId })
+    const history = await Usage.find({ user: new mongoose.Types.ObjectId(userId) })
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(parseInt(limit))
       .populate('plan', 'name')
       .select('cardScansUsed year month createdAt updatedAt');
 
-    const total = await Usage.countDocuments({ user: userId });
+    const total = await Usage.countDocuments({ user: new mongoose.Types.ObjectId(userId) });
 
     res.json({
       success: true,

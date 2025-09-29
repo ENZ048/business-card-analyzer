@@ -2,14 +2,19 @@ import React, { createContext, useContext, useReducer, useEffect } from 'react';
 import { apiService } from '../lib/api';
 
 // Initial state
-const initialState = {
-  user: null,
-  token: localStorage.getItem('token'),
-  isAuthenticated: false,
-  isLoading: true,
-  isAuthLoading: false,
-  error: null
+const getInitialState = () => {
+  const token = localStorage.getItem('token');
+  return {
+    user: null,
+    token: token,
+    isAuthenticated: !!token,
+    isLoading: true,
+    isAuthLoading: false,
+    error: null
+  };
 };
+
+const initialState = getInitialState();
 
 // Action types
 const AUTH_ACTIONS = {
@@ -132,9 +137,9 @@ export const AuthProvider = ({ children }) => {
     if (state.token) {
       loadUser();
     } else {
-      dispatch({ type: AUTH_ACTIONS.LOAD_USER_FAILURE });
+      dispatch({ type: AUTH_ACTIONS.LOAD_USER_FAILURE, payload: 'No token found' });
     }
-  }, []);
+  }, [state.token]);
 
   // Load user function
   const loadUser = async () => {
@@ -144,7 +149,7 @@ export const AuthProvider = ({ children }) => {
       const response = await apiService.getProfile();
       dispatch({
         type: AUTH_ACTIONS.LOAD_USER_SUCCESS,
-        payload: { user: response.user }
+        payload: { user: response.user || response.data }
       });
     } catch (error) {
       dispatch({

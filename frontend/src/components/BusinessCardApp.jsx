@@ -94,7 +94,6 @@ const BusinessCardApp = () => {
   
   // Navbar state
   const [activeTab, setActiveTab] = useState('dashboard');
-  const [userProfile, setUserProfile] = useState(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   // Menu items
@@ -125,39 +124,6 @@ const BusinessCardApp = () => {
   const processedContactsRef = useRef(null);
   const bulkProcessedContactsRef = useRef(null);
 
-  // Fetch user profile on component mount
-  useEffect(() => {
-    const fetchUserProfile = async () => {
-      if (!user?.id) {
-        // Set fallback profile data if no user
-        setUserProfile({
-          firstName: 'User',
-          lastName: 'Account',
-          email: 'user@example.com',
-          currentPlan: { name: 'Free Plan' }
-        });
-        return;
-      }
-
-      try {
-        const response = await apiService.getProfile();
-        if (response.success) {
-          setUserProfile(response.data);
-        }
-      } catch (error) {
-        console.error('Error fetching user profile:', error);
-        // Set fallback profile data
-        setUserProfile({
-          firstName: user.firstName || 'User',
-          lastName: user.lastName || 'Account',
-          email: user.email || 'user@example.com',
-          currentPlan: { name: 'Free Plan' }
-        });
-      }
-    };
-
-    fetchUserProfile();
-  }, [user]);
 
 
   // File handling functions
@@ -1171,15 +1137,15 @@ const BusinessCardApp = () => {
             <div className="flex items-center space-x-3">
               <div className="h-10 w-10 bg-premium-orange rounded-full flex items-center justify-center shadow-sm">
                 <span className="text-sm font-bold text-premium-white">
-                  {userProfile ? (userProfile.firstName?.[0] || 'U') : 'U'}
+                  {user ? (user.firstName?.[0] || 'U') : 'U'}
                 </span>
               </div>
               <div className="flex-1 min-w-0">
                 <p className="font-semibold text-premium-black truncate">
-                  {userProfile ? `${userProfile.firstName} ${userProfile.lastName}` : 'User Account'}
+                  {user ? `${user.firstName} ${user.lastName}` : 'User Account'}
                 </p>
                 <p className="text-xs text-premium-gray truncate">
-                  {userProfile?.currentPlan?.name || 'Free Plan'}
+                  {user?.currentPlan?.name || 'Free Plan'}
                 </p>
               </div>
             </div>
@@ -1266,15 +1232,15 @@ const BusinessCardApp = () => {
               <div className="hidden sm:flex items-center space-x-3">
                 <div className="h-8 w-8 bg-premium-orange rounded-full flex items-center justify-center shadow-sm">
                   <span className="text-xs font-bold text-premium-white">
-                    {userProfile ? (userProfile.firstName?.[0] || 'U') : 'U'}
+                    {user ? (user.firstName?.[0] || 'U') : 'U'}
                   </span>
                 </div>
                 <div className="text-sm">
                   <p className="font-semibold text-premium-black">
-                    {userProfile ? `${userProfile.firstName} ${userProfile.lastName}` : 'User Account'}
+                    {user ? `${user.firstName} ${user.lastName}` : 'User Account'}
                   </p>
                   <p className="text-xs text-premium-gray">
-                    {userProfile?.currentPlan?.name || 'Free Plan'}
+                    {user?.currentPlan?.name || 'Free Plan'}
                   </p>
                 </div>
               </div>

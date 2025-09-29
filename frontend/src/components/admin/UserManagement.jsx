@@ -12,7 +12,9 @@ import {
   Mail,
   Calendar,
   Shield,
-  RefreshCw
+  RefreshCw,
+  Phone,
+  Building
 } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
@@ -217,6 +219,8 @@ const UserManagement = () => {
                 <tr>
                   <th className="text-left py-3 px-4 text-sm font-medium text-slate-700">User</th>
                   <th className="text-left py-3 px-4 text-sm font-medium text-slate-700">Email</th>
+                  <th className="text-left py-3 px-4 text-sm font-medium text-slate-700">Company</th>
+                  <th className="text-left py-3 px-4 text-sm font-medium text-slate-700">Phone</th>
                   <th className="text-left py-3 px-4 text-sm font-medium text-slate-700">Plan</th>
                   <th className="text-left py-3 px-4 text-sm font-medium text-slate-700">Role</th>
                   <th className="text-left py-3 px-4 text-sm font-medium text-slate-700">Status</th>
@@ -253,8 +257,20 @@ const UserManagement = () => {
                       </div>
                     </td>
                     <td className="py-4 px-6">
+                      <div className="flex items-center">
+                        <Building className="h-4 w-4 text-premium-gray mr-2" />
+                        <span className="text-sm text-premium-gray">{user.companyName || 'N/A'}</span>
+                      </div>
+                    </td>
+                    <td className="py-4 px-6">
+                      <div className="flex items-center">
+                        <Phone className="h-4 w-4 text-premium-gray mr-2" />
+                        <span className="text-sm text-premium-gray">{user.phoneNumber || 'N/A'}</span>
+                      </div>
+                    </td>
+                    <td className="py-4 px-6">
                       <span className="text-sm text-premium-gray">
-                        {user.currentPlan?.displayName || 'No Plan'}
+                        {user.currentPlan?.displayName || 'Starter Plan'}
                       </span>
                     </td>
                     <td className="py-4 px-6">
@@ -286,12 +302,12 @@ const UserManagement = () => {
                       </div>
                     </td>
                     <td className="py-4 px-6">
-                      <div className="flex items-center space-x-2">
+                      <div className="flex flex-col items-center space-y-2">
                         <Button
                           onClick={() => openUserModal(user)}
                           variant="outline"
                           size="sm"
-                          className="flex items-center gap-1"
+                          className="flex items-center gap-1 w-full"
                         >
                           <Eye className="h-3 w-3" />
                           View
@@ -300,7 +316,7 @@ const UserManagement = () => {
                           onClick={() => handleResetUsage(user._id)}
                           variant="outline"
                           size="sm"
-                          className="flex items-center gap-1"
+                          className="flex items-center gap-1 w-full"
                         >
                           <RefreshCw className="h-3 w-3" />
                           Reset
@@ -309,7 +325,7 @@ const UserManagement = () => {
                           onClick={() => handleUserDelete(user._id)}
                           variant="outline"
                           size="sm"
-                          className="flex items-center gap-1 text-red-600 hover:text-red-700"
+                          className="flex items-center gap-1 text-red-600 hover:text-red-700 w-full"
                         >
                           <Trash2 className="h-3 w-3" />
                           Delete
@@ -374,6 +390,8 @@ const UserDetailsModal = ({ user, onClose, onSave }) => {
     firstName: user.user.firstName,
     lastName: user.user.lastName,
     email: user.user.email,
+    companyName: user.user.companyName,
+    phoneNumber: user.user.phoneNumber,
     role: user.user.role,
     isActive: user.user.isActive
   });
@@ -429,6 +447,30 @@ const UserDetailsModal = ({ user, onClose, onSave }) => {
                 type="email"
                 value={formData.email}
                 onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-2">
+                Company Name
+              </label>
+              <Input
+                type="text"
+                value={formData.companyName}
+                onChange={(e) => setFormData(prev => ({ ...prev, companyName: e.target.value }))}
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-2">
+                Phone Number
+              </label>
+              <Input
+                type="tel"
+                value={formData.phoneNumber}
+                onChange={(e) => setFormData(prev => ({ ...prev, phoneNumber: e.target.value }))}
                 required
               />
             </div>
