@@ -130,13 +130,32 @@ const BusinessCardApp = () => {
   const handleFileSelect = (files, isBulk = false) => {
     if (isBulk) {
       const fileArray = Array.from(files);
-      setBulkImages(fileArray);
+      // Validate file types
+      const invalidFiles = fileArray.filter(file => !file.type.startsWith('image/'));
+      if (invalidFiles.length > 0) {
+        toast.error(`Please select only image files. ${invalidFiles.length} invalid file(s) removed.`);
+      }
+      const validFiles = fileArray.filter(file => file.type.startsWith('image/'));
+      setBulkImages(validFiles);
+      if (validFiles.length > 0) {
+        toast.success(`${validFiles.length} image(s) selected for bulk processing`);
+      }
     } else {
       if (files.length > 0) {
+        if (!files[0].type.startsWith('image/')) {
+          toast.error('Please select an image file for the front of the card');
+          return;
+        }
         setFrontImage(files[0]);
+        toast.success('Front image selected');
       }
       if (files.length > 1) {
+        if (!files[1].type.startsWith('image/')) {
+          toast.error('Please select an image file for the back of the card');
+          return;
+        }
         setBackImage(files[1]);
+        toast.success('Back image selected');
       }
     }
   };
@@ -155,6 +174,7 @@ const BusinessCardApp = () => {
   const processSingleCard = async () => {
     if (!frontImage || !user?.id) {
       console.error("Cannot process card: Missing front image or user authentication");
+      toast.error("Please select an image and ensure you're logged in");
       return;
     }
 
@@ -199,12 +219,15 @@ const BusinessCardApp = () => {
     } catch (error) {
       console.error("Error processing card:", error);
       setIsProcessing(false);
+      const errorMessage = error.toastMessage || error.response?.data?.error || "Failed to process business card. Please try again.";
+      toast.error(errorMessage);
     }
   };
 
   const processBulkCards = async () => {
     if (bulkImages.length === 0 || !user?.id) {
       console.error("Cannot process bulk cards: Missing images or user authentication");
+      toast.error("Please select images and ensure you're logged in");
       return;
     }
 
@@ -249,6 +272,8 @@ const BusinessCardApp = () => {
     } catch (error) {
       console.error("Error processing bulk cards:", error);
       setIsProcessing(false);
+      const errorMessage = error.toastMessage || error.response?.data?.error || "Failed to process bulk cards. Please try again.";
+      toast.error(errorMessage);
     }
   };
 
@@ -262,8 +287,11 @@ const BusinessCardApp = () => {
       a.download = `${contact.fullName || "contact"}.vcf`;
       a.click();
       window.URL.revokeObjectURL(url);
+      toast.success("VCF file downloaded successfully");
     } catch (error) {
       console.error("Error exporting VCF:", error);
+      const errorMessage = error.toastMessage || error.response?.data?.error || "Failed to export VCF file. Please try again.";
+      toast.error(errorMessage);
     }
   };
 
@@ -276,8 +304,11 @@ const BusinessCardApp = () => {
       a.download = "contacts.vcf";
       a.click();
       window.URL.revokeObjectURL(url);
+      toast.success("Bulk VCF file downloaded successfully");
     } catch (error) {
       console.error("Error exporting bulk VCF:", error);
+      const errorMessage = error.toastMessage || error.response?.data?.error || "Failed to export bulk VCF file. Please try again.";
+      toast.error(errorMessage);
     }
   };
 
@@ -290,8 +321,11 @@ const BusinessCardApp = () => {
       a.download = "contacts.csv";
       a.click();
       window.URL.revokeObjectURL(url);
+      toast.success("CSV file downloaded successfully");
     } catch (error) {
       console.error("Error exporting CSV:", error);
+      const errorMessage = error.toastMessage || error.response?.data?.error || "Failed to export CSV file. Please try again.";
+      toast.error(errorMessage);
     }
   };
 
@@ -304,8 +338,11 @@ const BusinessCardApp = () => {
       a.download = "contacts.xlsx";
       a.click();
       window.URL.revokeObjectURL(url);
+      toast.success("Excel file downloaded successfully");
     } catch (error) {
       console.error("Error exporting XLSX:", error);
+      const errorMessage = error.toastMessage || error.response?.data?.error || "Failed to export Excel file. Please try again.";
+      toast.error(errorMessage);
     }
   };
 

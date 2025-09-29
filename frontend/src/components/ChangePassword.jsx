@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Eye, EyeOff, Lock, CheckCircle, AlertCircle } from 'lucide-react';
+import { toast } from 'react-toastify';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { apiService } from '../lib/api';
@@ -17,17 +18,12 @@ const ChangePassword = () => {
     confirm: false
   });
   const [isLoading, setIsLoading] = useState(false);
-  const [message, setMessage] = useState({ type: '', text: '' });
 
   const handleChange = (e) => {
     setFormData({
       ...formData,
       [e.target.name]: e.target.value
     });
-    // Clear message when user starts typing
-    if (message.text) {
-      setMessage({ type: '', text: '' });
-    }
   };
 
   const togglePasswordVisibility = (field) => {
@@ -59,18 +55,18 @@ const ChangePassword = () => {
     
     // Validation
     if (!formData.currentPassword || !formData.newPassword || !formData.confirmPassword) {
-      setMessage({ type: 'error', text: 'Please fill in all fields' });
+      toast.error('Please fill in all fields');
       return;
     }
 
     if (formData.newPassword !== formData.confirmPassword) {
-      setMessage({ type: 'error', text: 'New passwords do not match' });
+      toast.error('New passwords do not match');
       return;
     }
 
     const passwordValidation = validatePassword(formData.newPassword);
     if (!passwordValidation.isValid) {
-      setMessage({ type: 'error', text: 'Password does not meet requirements' });
+      toast.error('Password does not meet requirements');
       return;
     }
 
@@ -80,18 +76,18 @@ const ChangePassword = () => {
       const response = await apiService.changePassword(formData.currentPassword, formData.newPassword);
       
       if (response.success) {
-        setMessage({ type: 'success', text: response.message || 'Password changed successfully!' });
+        toast.success(response.message || 'Password changed successfully!');
         setFormData({
           currentPassword: '',
           newPassword: '',
           confirmPassword: ''
         });
       } else {
-        setMessage({ type: 'error', text: response.message || 'Failed to change password. Please try again.' });
+        toast.error(response.message || 'Failed to change password. Please try again.');
       }
     } catch (error) {
       const errorMessage = error.response?.data?.message || 'Failed to change password. Please try again.';
-      setMessage({ type: 'error', text: errorMessage });
+      toast.error(errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -227,29 +223,6 @@ const ChangePassword = () => {
             )}
           </div>
 
-          {/* Message */}
-          {message.text && (
-            <motion.div
-              initial={{ opacity: 0, y: -10 }}
-              animate={{ opacity: 1, y: 0 }}
-              className={`p-4 rounded-lg flex items-center gap-3 ${
-                message.type === 'success' 
-                  ? 'bg-green-50 border border-green-200' 
-                  : 'bg-red-50 border border-red-200'
-              }`}
-            >
-              {message.type === 'success' ? (
-                <CheckCircle className="h-5 w-5 text-green-600" />
-              ) : (
-                <AlertCircle className="h-5 w-5 text-red-600" />
-              )}
-              <p className={`text-sm ${
-                message.type === 'success' ? 'text-green-600' : 'text-red-600'
-              }`}>
-                {message.text}
-              </p>
-            </motion.div>
-          )}
 
           {/* Submit Button */}
           <Button

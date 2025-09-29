@@ -46,7 +46,9 @@ if (process.env.NODE_ENV === "production") {
   app.use(cors({ origin: ["http://localhost:5173", "http://localhost:3000"], credentials: true }));
 }
 
-app.use(express.json());
+// Increase body size limits for file uploads
+app.use(express.json({ limit: '300mb' }));
+app.use(express.urlencoded({ limit: '300mb', extended: true }));
 app.use(cookieParser());
 
 // ---------- Connect to Database ----------
@@ -115,6 +117,36 @@ function setAuthCookie(res, token, opts = {}) {
 
 // Export helper if you want to use in controllers
 module.exports.setAuthCookie = setAuthCookie;
+
+// ---------- Error Handling Middleware ----------
+// Global error handler for multer and other upload errors
+app.use((error, req, res, next) => {
+  if (error.code === 'LIMIT_FILE_SIZE') {
+    return res.status(400).json({
+      error: 'File too large. Maximum file size is 300MB per file.',
+      code: 'FILE_TOO_LARGE'
+    });
+  }
+  if (error.code === 'LIMIT_FILE_COUNT') {
+    return res.status(400).json({
+      error: 'Too many files. Maximum 100 files allowed.',
+      code: 'TOO_MANY_FILES'
+    });
+  }
+  if (error.code === 'LIMIT_UNEXPECTED_FILE') {
+    return res.status(400).json({
+      error: 'Unexpected field name in file upload.',
+      code: 'UNEXPECTED_FIELD'
+    });
+  }
+  if (error.message === 'Only image files are allowed!') {
+    return res.status(400).json({
+      error: 'Only image files (JPEG, PNG, GIF, BMP, WebP) are allowed.',
+      code: 'INVALID_FILE_TYPE'
+    });
+  }
+  next(error);
+});
 
 // ---------- Start Server ----------
 const PORT = process.env.PORT || 5000;

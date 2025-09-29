@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
+import { toast } from 'react-toastify';
 import { 
   Users, 
   TrendingUp, 
@@ -44,8 +45,16 @@ const AdminDashboard = () => {
       const response = await apiService.getAdminDashboard();
       setDashboardData(response);
       setLastUpdated(new Date());
+      
+      if (isAutoRefresh) {
+        toast.success('Dashboard data refreshed successfully');
+      }
     } catch (err) {
-      setError(err.response?.data?.error || 'Failed to fetch dashboard data');
+      const errorMessage = err.toastMessage || err.response?.data?.error || 'Failed to fetch dashboard data';
+      setError(errorMessage);
+      if (!isAutoRefresh) {
+        toast.error(errorMessage);
+      }
     } finally {
       setIsLoading(false);
       setIsRefreshing(false);

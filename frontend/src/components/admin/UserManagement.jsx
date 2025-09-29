@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
+import { toast } from 'react-toastify';
 import { 
   Search, 
   Filter, 
@@ -41,6 +42,7 @@ const UserManagement = () => {
   const fetchUsers = async () => {
     try {
       setIsLoading(true);
+      setError(null);
       const response = await apiService.getAdminUsers(
         currentPage,
         20,
@@ -51,7 +53,9 @@ const UserManagement = () => {
       setUsers(response.users);
       setPagination(response.pagination);
     } catch (err) {
-      setError(err.response?.data?.error || 'Failed to fetch users');
+      const errorMessage = err.toastMessage || err.response?.data?.error || 'Failed to fetch users';
+      setError(errorMessage);
+      toast.error(errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -65,10 +69,13 @@ const UserManagement = () => {
   const handleUserEdit = async (userId, userData) => {
     try {
       await apiService.updateAdminUser(userId, userData);
+      toast.success('User updated successfully');
       fetchUsers();
       setShowUserModal(false);
     } catch (err) {
-      setError(err.response?.data?.error || 'Failed to update user');
+      const errorMessage = err.toastMessage || err.response?.data?.error || 'Failed to update user';
+      setError(errorMessage);
+      toast.error(errorMessage);
     }
   };
 
@@ -76,9 +83,12 @@ const UserManagement = () => {
     if (window.confirm('Are you sure you want to deactivate this user?')) {
       try {
         await apiService.deleteAdminUser(userId);
+        toast.success('User deactivated successfully');
         fetchUsers();
       } catch (err) {
-        setError(err.response?.data?.error || 'Failed to delete user');
+        const errorMessage = err.toastMessage || err.response?.data?.error || 'Failed to delete user';
+        setError(errorMessage);
+        toast.error(errorMessage);
       }
     }
   };
@@ -87,9 +97,12 @@ const UserManagement = () => {
     if (window.confirm('Are you sure you want to reset this user\'s usage?')) {
       try {
         await apiService.resetUserUsage(userId);
+        toast.success('User usage reset successfully');
         fetchUsers();
       } catch (err) {
-        setError(err.response?.data?.error || 'Failed to reset usage');
+        const errorMessage = err.toastMessage || err.response?.data?.error || 'Failed to reset usage';
+        setError(errorMessage);
+        toast.error(errorMessage);
       }
     }
   };
@@ -100,7 +113,9 @@ const UserManagement = () => {
       setSelectedUser(response);
       setShowUserModal(true);
     } catch (err) {
-      setError(err.response?.data?.error || 'Failed to fetch user details');
+      const errorMessage = err.toastMessage || err.response?.data?.error || 'Failed to fetch user details';
+      setError(errorMessage);
+      toast.error(errorMessage);
     }
   };
 

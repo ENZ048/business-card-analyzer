@@ -39,6 +39,34 @@ api.interceptors.response.use(
   },
   (error) => {
     console.error('❌ API Response Error:', error.response?.data || error.message);
+    
+    // Enhanced error handling for better toast messages
+    if (error.response) {
+      const { status, data } = error.response;
+      
+      // Add more specific error information
+      error.toastMessage = data.message || data.error || 'An error occurred';
+      error.errorCode = data.code || null;
+      error.statusCode = status;
+      
+      // Handle specific error types
+      if (status === 403 && data.code === 'USAGE_LIMIT_EXCEEDED') {
+        error.toastMessage = data.error || 'Usage limit exceeded';
+      } else if (status === 401) {
+        error.toastMessage = data.error || 'Authentication required';
+      } else if (status === 403) {
+        error.toastMessage = data.error || 'Access denied';
+      } else if (status === 404) {
+        error.toastMessage = data.error || 'Resource not found';
+      } else if (status >= 500) {
+        error.toastMessage = 'Server error. Please try again later.';
+      }
+    } else if (error.request) {
+      error.toastMessage = 'Network error. Please check your connection.';
+    } else {
+      error.toastMessage = 'An unexpected error occurred.';
+    }
+    
     return Promise.reject(error);
   }
 );

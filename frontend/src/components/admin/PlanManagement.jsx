@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
+import { toast } from 'react-toastify';
 import { 
   Edit, 
   Save, 
@@ -30,11 +31,14 @@ const PlanManagement = () => {
   const fetchPlans = async () => {
     try {
       setIsLoading(true);
+      setError(null);
       const response = await apiService.getAdminPlans();
       setPlans(response.plans);
       setPlanStats(response.planStats);
     } catch (err) {
-      setError(err.response?.data?.error || 'Failed to fetch plans');
+      const errorMessage = err.toastMessage || err.response?.data?.error || 'Failed to fetch plans';
+      setError(errorMessage);
+      toast.error(errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -61,10 +65,13 @@ const PlanManagement = () => {
       };
       
       await apiService.updateAdminPlan(planId, planData);
+      toast.success('Plan updated successfully');
       setEditingPlan(null);
       fetchPlans();
     } catch (err) {
-      setError(err.response?.data?.error || 'Failed to update plan');
+      const errorMessage = err.toastMessage || err.response?.data?.error || 'Failed to update plan';
+      setError(errorMessage);
+      toast.error(errorMessage);
     }
   };
 

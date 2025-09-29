@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
+import { toast } from 'react-toastify';
 import { 
   BarChart3, 
   TrendingUp, 
@@ -26,10 +27,13 @@ const UsageAnalytics = () => {
   const fetchAnalytics = async () => {
     try {
       setIsLoading(true);
+      setError(null);
       const response = await apiService.getAdminUsage(filters.year, filters.month);
       setAnalyticsData(response);
     } catch (err) {
-      setError(err.response?.data?.error || 'Failed to fetch analytics data');
+      const errorMessage = err.toastMessage || err.response?.data?.error || 'Failed to fetch analytics data';
+      setError(errorMessage);
+      toast.error(errorMessage);
     } finally {
       setIsLoading(false);
     }

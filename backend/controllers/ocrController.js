@@ -27,6 +27,8 @@ const NAME_EXCLUDE_WORDS = [
   'Telephone', 'Fax', 'Director', 'Manager', 'CEO', 'CTO', 'Founder'
 ];
 
+const BULK_OCR_BATCH_SIZE = 10; // OCR batch size tuned for up to 100 uploads
+
 // ---------- Helpers ----------
 
 function ensureArray(value) {
@@ -899,7 +901,7 @@ async function processBusinessCard(req, res) {
 
       const ocrResults = await processInBatches(
         bulkFiles,
-        8, // Reduced batch size for better reliability
+        BULK_OCR_BATCH_SIZE, // Reduced batch size for better reliability (tuned for 100 uploads)
         async (file) => {
           try {
             const result = await processOCR(file.path);

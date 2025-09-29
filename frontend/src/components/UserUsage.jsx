@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
+import { toast } from 'react-toastify';
 import { 
   BarChart3, 
   FileText, 
@@ -35,9 +36,12 @@ const UserUsage = () => {
           setUsageData(response.data);
         } else {
           console.error('Failed to fetch usage data:', response.message);
+          toast.error('Failed to load usage data. Please try again.');
         }
       } catch (error) {
         console.error('Error fetching usage data:', error);
+        const errorMessage = error.toastMessage || error.response?.data?.message || 'Failed to load usage data. Please check your connection and try again.';
+        toast.error(errorMessage);
         // Fallback to mock data if API fails
         const mockData = {
           totalCards: 0,
@@ -223,7 +227,10 @@ const UserUsage = () => {
               <p className="text-premium-gray">Up to {usageData.planLimit} cards per month</p>
             </div>
             <div className="sm:text-right">
-              <button className="w-full sm:w-auto bg-premium-orange hover:bg-premium-orange-dark text-premium-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">
+              <button 
+                onClick={() => toast.info('Plan upgrade feature coming soon!')}
+                className="w-full sm:w-auto bg-premium-orange hover:bg-premium-orange-dark text-premium-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+              >
                 Upgrade Plan
               </button>
             </div>
