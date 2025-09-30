@@ -67,7 +67,7 @@ async function downloadCSV(req, res) {
   }
 }
 
-// Single card QR (return as base64 JSON)
+// Single card QR (return as base64 JSON) - Single contact only
 async function getVCFQR(req, res) {
   try {
     const { contact, contacts } = req.body;
@@ -75,25 +75,30 @@ async function getVCFQR(req, res) {
     let vcfContent;
     let filename = "contact.vcf";
     
-    if (contacts && Array.isArray(contacts) && contacts.length > 0) {
-      // Bulk mode: generate QR for multiple contacts
-      vcfContent = generateBulkVCF(contacts);
-      filename = `contacts_${contacts.length}.vcf`;
-      
+    // Only allow single contact QR codes
+    if (contacts && Array.isArray(contacts)) {
+      if (contacts.length > 1) {
+        return res.status(400).json({ 
+          error: "QR codes are only available for single contacts",
+          message: "Please select only one contact to generate a QR code. For multiple contacts, use the VCF download option instead.",
+          suggestion: "Select a single contact from your processed results to generate a QR code."
+        });
+      } else if (contacts.length === 1) {
+        // Single contact in array - safe for QR
+        vcfContent = generateVCF(contacts[0]);
+        filename = "contact.vcf";
+      } else {
+        return res.status(400).json({ error: "No contacts provided" });
+      }
     } else if (contact) {
-      // Single mode: generate QR for one contact
+      // Single contact object - safe for QR
       vcfContent = generateVCF(contact);
       filename = "contact.vcf";
-      
-      // DEBUG: Log single VCF generation
-      console.log("🔍 QR Debug - Single mode activated");
-      console.log("🔍 QR Debug - VCF content length:", vcfContent.length);
-      console.log("🔍 QR Debug - VCF content preview:", vcfContent);
     } else {
       return res.status(400).json({ error: "Either 'contact' or 'contacts' array must be provided" });
     }
 
-    const qrData = await generateVCFQR({ vcfContent, filename }); // Pass VCF content directly
+    const qrData = await generateVCFQR({ vcfContent, filename });
     res.json({ qrData, filename });
   } catch (err) {
     console.error("QR code export error:", err);

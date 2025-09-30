@@ -383,6 +383,13 @@ function generateXLSX(contacts, fields) {
 // Generate QR code for VCF, return as base64 string
 async function generateVCFQR({ vcfContent, filename = "contact.vcf" }) {
   try {
+    // Check data size before generating QR code
+    const maxQRSize = 2500; // Leave some buffer below 2953 limit
+    
+    if (vcfContent.length > maxQRSize) {
+      throw new Error(`VCF content too large for QR code (${vcfContent.length} characters). Maximum allowed: ${maxQRSize} characters.`);
+    }
+    
     return await QRCode.toDataURL(vcfContent, { 
       type: "image/png",
       width: 256,

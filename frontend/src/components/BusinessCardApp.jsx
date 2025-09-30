@@ -338,6 +338,12 @@ const BusinessCardApp = () => {
 
   const generateQR = async (contact, isBulk = false) => {
     try {
+      // Prevent QR generation for bulk mode
+      if (isBulk) {
+        toast.info("QR codes are only available for single contacts. Please select one contact to generate a QR code.");
+        return;
+      }
+
       const data = await apiService.generateQR(
         isBulk ? null : contact,
         isBulk ? processedContacts : null
@@ -346,7 +352,8 @@ const BusinessCardApp = () => {
       setQrMode(isBulk ? "bulk" : "single");
       setQrModalOpen(true);
     } catch (error) {
-      // QR generation error handled silently
+      const errorMessage = error.toastMessage || error.response?.data?.error || "Failed to generate QR code. Please try again.";
+      toast.error(errorMessage);
     }
   };
 
@@ -1099,15 +1106,23 @@ const BusinessCardApp = () => {
                           <Download className="w-4 h-4 mr-2" />
                           Download VCF
                         </Button>
-                        <Button
-                          onClick={() =>
-                            generateQR(processedContacts[0], true)
-                          }
-                          className="w-full"
-                        >
-                          <QrCode className="w-4 h-4 mr-2" />
-                          Scan QR
-                        </Button>
+                        <div className="relative group">
+                          <Button
+                            onClick={() =>
+                              generateQR(processedContacts[0], true)
+                            }
+                            className="w-full opacity-50 cursor-not-allowed"
+                            disabled={true}
+                          >
+                            <QrCode className="w-4 h-4 mr-2" />
+                            Scan QR
+                          </Button>
+                          {/* Hover tooltip */}
+                          <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-premium-black text-premium-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-10">
+                            QR codes are only available in single mode
+                            <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-4 border-transparent border-t-premium-black"></div>
+                          </div>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -1309,13 +1324,10 @@ const BusinessCardApp = () => {
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>
-              {qrMode === "bulk" ? "Bulk Contacts QR Code" : "Contact QR Code"}
+              Contact QR Code
             </DialogTitle>
             <DialogDescription>
-              {qrMode === "bulk" 
-                ? "Scan this QR code to save multiple contacts to your phone" 
-                : "Scan this QR code to save this contact to your phone"
-              }
+              Scan this QR code to save this contact to your phone
             </DialogDescription>
           </DialogHeader>
           <div className="text-center space-y-4">
@@ -1329,29 +1341,9 @@ const BusinessCardApp = () => {
                   />
                 </div>
 
-                {/* Instructions based on mode */}
-                {qrMode === "bulk" ? (
-                  <div className="space-y-3">
-                    <p className="text-sm text-premium-gray">
-                      📱 Scan this QR code with your phone's camera or contact
-                      app
-                    </p>
-                    <p className="text-xs text-amber-600 bg-amber-50 p-2 rounded">
-                      ⚠️ Note: Some phones may only save the first contact when
-                      scanning bulk QR codes
-                    </p>
-                    <Button
-                      onClick={exportBulkVCF}
-                      className="w-full bg-green-600 hover:bg-green-700"
-                    >
-                      📥 Download All Contacts (Recommended for bulk)
-                    </Button>
-                  </div>
-                ) : (
-                  <p className="text-sm text-premium-gray">
-                    📱 Scan this QR code to save this contact
-                  </p>
-                )}
+                <p className="text-sm text-premium-gray">
+                  📱 Scan this QR code with your phone's camera or contact app to save this contact
+                </p>
               </>
             ) : (
               <div className="text-premium-gray-light py-8">

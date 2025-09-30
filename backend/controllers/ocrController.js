@@ -7,6 +7,7 @@ const OpenAI = require("openai");
 const { v4: uuidv4 } = require("uuid");
 const User = require("../models/User");
 const Usage = require("../models/Usage");
+const llmLogger = require("../utils/llmLogger");
 
 const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 const visionClient = new vision.ImageAnnotatorClient({
@@ -599,6 +600,20 @@ async function processInBatches(items, batchSize, fn) {
 
 // ---------- Enhanced GPT Parsing with Better Website Extraction ----------
 async function parseCardsWithGPT(cards, batchSize = 5) {
+  const startTime = Date.now();
+  
+  // Log the overall parsing request
+  llmLogger.logRequest('ocrController', 'parseCardsWithGPT', {
+    totalCards: cards.length,
+    batchSize,
+    cardsSummary: cards.map(card => ({
+      textLength: card.text?.length || 0,
+      hasEmails: (card.emails || []).length > 0,
+      hasPhones: (card.phones || []).length > 0,
+      hasWebsites: (card.websites || []).length > 0,
+      hasLogos: (card.logos || []).length > 0
+    }))
+  });
   
   const batches = [];
   for (let i = 0; i < cards.length; i += batchSize) {
@@ -607,6 +622,7 @@ async function parseCardsWithGPT(cards, batchSize = 5) {
 
   const results = await Promise.all(
     batches.map(async (batch, batchIndex) => {
+      const batchStartTime = Date.now();
       const offset = batchIndex * batchSize;
       
       const prompt = `You are an expert at parsing business card OCR text into structured JSON.
@@ -645,6 +661,57 @@ LOOK CAREFULLY for any website/domain mentions in the OCR text above.
 
 Return valid JSON only:`;
 
+      const requestData = {
+        model: "gpt-4o-mini",
+        messages: [{ role: "user", content: prompt }],
+        temperature: 0.1,
+        response_format: {
+          type: "json_schema",
+          json_schema: {
+            name: "business_cards",
+            schema: {
+              type: "object",
+              properties: {
+                cards: {
+                  type: "array",
+                  items: {
+                    type: "object",
+                    properties: {
+                      fullName: { type: "string" },
+                      jobTitle: { type: "string" },
+                      company: { type: "string" },
+                      phones: { type: "array", items: { type: "string" } },
+                      emails: { type: "array", items: { type: "string" } },
+                      websites: { type: "array", items: { type: "string" } },
+                      address: { type: "string" },
+                    },
+                    required: ["fullName","jobTitle","company","phones","emails","websites","address"],
+                  },
+                },
+              },
+              required: ["cards"],
+            },
+          },
+        },
+        batchInfo: {
+          batchIndex,
+          offset,
+          batchSize: batch.length,
+          cardsInBatch: batch.map(card => ({
+            textLength: card.text?.length || 0,
+            preDetected: {
+              emails: card.emails || [],
+              phones: card.phones || [],
+              websites: card.websites || [],
+              logos: card.logos || []
+            }
+          }))
+        }
+      };
+
+      // Log the batch request
+      llmLogger.logRequest('ocrController', `parseCardsWithGPT_batch_${batchIndex}`, requestData);
+
       try {
         const response = await client.chat.completions.create({
           model: "gpt-4o-mini",
@@ -680,17 +747,31 @@ Return valid JSON only:`;
           },
         });
 
+        const batchProcessingTime = Date.now() - batchStartTime;
         const parsed = JSON.parse(response.choices[0].message.content);
         const gptCards = parsed.cards;
         
+        // Log the batch response
+        llmLogger.logResponse('ocrController', `parseCardsWithGPT_batch_${batchIndex}`, {
+          rawResponse: response,
+          parsedData: parsed,
+          gptCardsCount: gptCards.length,
+          expectedCount: batch.length,
+          usage: response.usage
+        }, batchProcessingTime);
+        
         if (gptCards.length !== batch.length) {
-          // GPT returned different number of cards than expected
+          console.warn(`GPT returned ${gptCards.length} cards but expected ${batch.length} in batch ${batchIndex}`);
         }
 
         return gptCards.map((r, i) => normalizeCard(r, batch[i], offset + i + 1));
         
       } catch (err) {
+        const batchProcessingTime = Date.now() - batchStartTime;
         console.error(`GPT Error in batch ${batchIndex}:`, err.message);
+        
+        // Log the error
+        llmLogger.logError('ocrController', `parseCardsWithGPT_batch_${batchIndex}`, err, requestData);
         
         // Retry once with simpler prompt
         try {
@@ -698,26 +779,66 @@ Return valid JSON only:`;
 
 ${batch.map((card, idx) => `Card ${idx + 1}: ${card.text}`).join('\n\n')}`;
 
+          const retryRequestData = {
+            model: "gpt-4o-mini",
+            messages: [{ role: "user", content: simplePrompt }],
+            temperature: 0.2,
+            isRetry: true,
+            batchInfo: requestData.batchInfo
+          };
+
+          // Log the retry request
+          llmLogger.logRequest('ocrController', `parseCardsWithGPT_batch_${batchIndex}_retry`, retryRequestData);
+
           const retryResponse = await client.chat.completions.create({
             model: "gpt-4o-mini",
             messages: [{ role: "user", content: simplePrompt }],
             temperature: 0.2,
           });
           
+          const retryProcessingTime = Date.now() - batchStartTime;
           const retryParsed = JSON.parse(retryResponse.choices[0].message.content);
           const retryCards = retryParsed.cards || [retryParsed];
           
+          // Log the retry response
+          llmLogger.logResponse('ocrController', `parseCardsWithGPT_batch_${batchIndex}_retry`, {
+            rawResponse: retryResponse,
+            parsedData: retryParsed,
+            retryCardsCount: retryCards.length,
+            usage: retryResponse.usage
+          }, retryProcessingTime);
+          
           return retryCards.map((r, i) => normalizeCard(r, batch[i], offset + i + 1));
         } catch (retryErr) {
+          const retryProcessingTime = Date.now() - batchStartTime;
           console.error("GPT retry failed:", retryErr);
+          
+          // Log the retry error
+          llmLogger.logError('ocrController', `parseCardsWithGPT_batch_${batchIndex}_retry`, retryErr, requestData);
+          
           return batch.map((c, i) => fallbackParse(c, offset + i + 1));
         }
       }
     })
   );
 
+  const totalProcessingTime = Date.now() - startTime;
   const flatResults = results.flat();
-  return mergeParsedCards(flatResults);
+  const mergedResults = mergeParsedCards(flatResults);
+
+  // Log the overall parsing response
+  llmLogger.logResponse('ocrController', 'parseCardsWithGPT', {
+    totalCardsProcessed: cards.length,
+    totalBatches: batches.length,
+    finalResultsCount: mergedResults.length,
+    processingSummary: {
+      totalTime: totalProcessingTime,
+      averageTimePerCard: Math.round(totalProcessingTime / cards.length),
+      averageTimePerBatch: Math.round(totalProcessingTime / batches.length)
+    }
+  }, totalProcessingTime);
+
+  return mergedResults;
 }
 
 // ---------- Enhanced Normalization ----------
