@@ -55,7 +55,6 @@ const LoginForm = ({ onSwitchToRegister }) => {
         }
       }
     } catch (err) {
-      console.error('Login error:', err);
       toast.error('Network error occurred. Please check your internet connection and try again.');
     }
   };

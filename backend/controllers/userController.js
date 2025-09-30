@@ -205,18 +205,6 @@ const getUserUsage = async (req, res) => {
       { $match: { user: new mongoose.Types.ObjectId(userId) } },
       { $group: { _id: null, totalCards: { $sum: '$cardScansUsed' } } }
     ]);
-    
-    console.log('Total usage aggregation result:', totalUsage);
-    console.log('Total cards calculated:', totalUsage.length > 0 ? totalUsage[0].totalCards : 0);
-
-    // Debug: Check all usage records for this user
-    const allUsageForUser = await Usage.find({ user: new mongoose.Types.ObjectId(userId) });
-    console.log('All usage records for user:', allUsageForUser.map(u => ({ 
-      year: u.year, 
-      month: u.month, 
-      cardScansUsed: u.cardScansUsed,
-      activities: u.activities?.length || 0
-    })));
 
     // Get user's current plan
     const user = await User.findById(userId).populate('currentPlan');
@@ -251,6 +239,37 @@ const getUserUsage = async (req, res) => {
       .sort((a, b) => new Date(b.date) - new Date(a.date))
       .slice(0, 10);
 
+    // Calculate plan days remaining
+    let daysRemaining = 0;
+    let planEndDate = null;
+    let isPlanExpired = false;
+    
+    if (user.planEndDate) {
+      planEndDate = user.planEndDate;
+      const now = new Date();
+      const timeDiff = user.planEndDate.getTime() - now.getTime();
+      daysRemaining = Math.ceil(timeDiff / (1000 * 3600 * 24));
+      isPlanExpired = daysRemaining <= 0;
+      
+      // Ensure daysRemaining is never NaN
+      if (isNaN(daysRemaining)) {
+        daysRemaining = 0;
+        isPlanExpired = true;
+      }
+    } else {
+      // If user doesn't have planEndDate, set a default 30-day trial
+      const now = new Date();
+      planEndDate = new Date();
+      planEndDate.setDate(now.getDate() + 30);
+      daysRemaining = 30;
+      isPlanExpired = false;
+      
+      // Update user with default plan dates
+      user.planStartDate = now;
+      user.planEndDate = planEndDate;
+      await user.save();
+    }
+
     // Calculate usage data
     const usageData = {
       totalCards: totalUsage.length > 0 ? totalUsage[0].totalCards : 0,
@@ -259,10 +278,11 @@ const getUserUsage = async (req, res) => {
       planLimit: plan ? plan.cardScansLimit : 100,
       planType: plan ? plan.displayName : 'Free',
       planId: plan ? plan._id : null,
+      planEndDate: planEndDate,
+      daysRemaining: daysRemaining,
+      isPlanExpired: isPlanExpired,
       recentActivity: recentActivity
     };
-
-    console.log('Final usage data being sent:', usageData);
 
     res.json({
       success: true,
@@ -348,22 +368,11 @@ const changePassword = async (req, res) => {
 // Get user profile
 const getUserProfile = async (req, res) => {
   try {
-    console.log('getUserProfile called with userId:', req.user.id);
     const userId = req.user.id;
     
     const user = await User.findById(userId)
       .populate('currentPlan', 'name cardScansLimit price')
       .select('-password');
-
-    console.log('Found user:', user ? 'Yes' : 'No');
-    if (user) {
-      console.log('User data:', {
-        firstName: user.firstName,
-        lastName: user.lastName,
-        email: user.email,
-        currentPlan: user.currentPlan
-      });
-    }
 
     if (!user) {
       return res.status(404).json({

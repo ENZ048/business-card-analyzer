@@ -14,7 +14,12 @@ const AppRouter = () => {
   }
 
   return (
-    <BrowserRouter>
+    <BrowserRouter
+      future={{
+        v7_startTransition: true,
+        v7_relativeSplatPath: true
+      }}
+    >
       <Routes>
         {/* If user is not authenticated, show auth page */}
         {!isAuthenticated ? (

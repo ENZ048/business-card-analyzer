@@ -11,6 +11,7 @@ import {
   AlertCircle
 } from 'lucide-react';
 import { apiService } from '../lib/api';
+import PlanDaysRemainingChart from './PlanDaysRemainingChart';
 
 const UserUsage = () => {
   const [usageData, setUsageData] = useState({
@@ -19,6 +20,9 @@ const UserUsage = () => {
     lastMonth: 0,
     planLimit: 100,
     planType: 'Starter',
+    planEndDate: null,
+    daysRemaining: 0,
+    isPlanExpired: false,
     recentActivity: []
   });
 
@@ -29,17 +33,12 @@ const UserUsage = () => {
       setIsLoading(true);
       try {
         const response = await apiService.getUserUsage();
-        console.log('Usage API Response:', response);
         if (response.success) {
-          console.log('Usage data received:', response.data);
-          console.log('Total cards from API:', response.data.totalCards);
           setUsageData(response.data);
         } else {
-          console.error('Failed to fetch usage data:', response.message);
           toast.error('Failed to load usage data. Please try again.');
         }
       } catch (error) {
-        console.error('Error fetching usage data:', error);
         const errorMessage = error.toastMessage || error.response?.data?.message || 'Failed to load usage data. Please check your connection and try again.';
         toast.error(errorMessage);
         // Fallback to mock data if API fails
@@ -49,6 +48,9 @@ const UserUsage = () => {
           lastMonth: 0,
           planLimit: 1000,
           planType: 'Starter Plan',
+          planEndDate: null,
+          daysRemaining: 0,
+          isPlanExpired: false,
           recentActivity: []
         };
         setUsageData(mockData);
@@ -169,11 +171,26 @@ const UserUsage = () => {
           </div>
         </motion.div>
 
-        {/* Recent Activity */}
+        {/* Plan Days Remaining Chart */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.4 }}
+          className="mb-8"
+        >
+          <PlanDaysRemainingChart
+            daysRemaining={usageData.daysRemaining}
+            planEndDate={usageData.planEndDate}
+            isPlanExpired={usageData.isPlanExpired}
+            planType={usageData.planType}
+          />
+        </motion.div>
+
+        {/* Recent Activity */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.5 }}
           className="border border-premium-border rounded-xl p-6 mb-8"
         >
           <h3 className="text-lg font-semibold text-premium-black mb-4">Recent Activity</h3>
@@ -216,7 +233,7 @@ const UserUsage = () => {
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.5 }}
+          transition={{ delay: 0.6 }}
           className="border border-premium-border rounded-xl p-6"
         >
           <h3 className="text-lg font-semibold text-premium-black mb-4">Current Plan</h3>

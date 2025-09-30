@@ -173,7 +173,6 @@ const BusinessCardApp = () => {
   // OCR Processing
   const processSingleCard = async () => {
     if (!frontImage || !user?.id) {
-      console.error("Cannot process card: Missing front image or user authentication");
       toast.error("Please select an image and ensure you're logged in");
       return;
     }
@@ -182,7 +181,6 @@ const BusinessCardApp = () => {
 
     try {
       const result = await apiService.uploadSingleCard(user.id, frontImage, backImage);
-      console.log("📋 Processed contacts:", result.data);
       
       // Add sourceMode to each contact and normalize data
       const contactsWithMode = (result.data || []).map((contact) => ({
@@ -217,7 +215,6 @@ const BusinessCardApp = () => {
         }, 100);
       }
     } catch (error) {
-      console.error("Error processing card:", error);
       setIsProcessing(false);
       const errorMessage = error.toastMessage || error.response?.data?.error || "Failed to process business card. Please try again.";
       toast.error(errorMessage);
@@ -226,7 +223,6 @@ const BusinessCardApp = () => {
 
   const processBulkCards = async () => {
     if (bulkImages.length === 0 || !user?.id) {
-      console.error("Cannot process bulk cards: Missing images or user authentication");
       toast.error("Please select images and ensure you're logged in");
       return;
     }
@@ -235,7 +231,6 @@ const BusinessCardApp = () => {
 
     try {
       const result = await apiService.uploadBulkCards(user.id, bulkImages);
-      console.log("📋 Processed contacts:", result.data);
       
       // Add sourceMode to each contact and normalize data
       const contactsWithMode = (result.data || []).map((contact) => ({
@@ -270,7 +265,6 @@ const BusinessCardApp = () => {
         }, 100);
       }
     } catch (error) {
-      console.error("Error processing bulk cards:", error);
       setIsProcessing(false);
       const errorMessage = error.toastMessage || error.response?.data?.error || "Failed to process bulk cards. Please try again.";
       toast.error(errorMessage);
@@ -289,7 +283,6 @@ const BusinessCardApp = () => {
       window.URL.revokeObjectURL(url);
       toast.success("VCF file downloaded successfully");
     } catch (error) {
-      console.error("Error exporting VCF:", error);
       const errorMessage = error.toastMessage || error.response?.data?.error || "Failed to export VCF file. Please try again.";
       toast.error(errorMessage);
     }
@@ -306,7 +299,6 @@ const BusinessCardApp = () => {
       window.URL.revokeObjectURL(url);
       toast.success("Bulk VCF file downloaded successfully");
     } catch (error) {
-      console.error("Error exporting bulk VCF:", error);
       const errorMessage = error.toastMessage || error.response?.data?.error || "Failed to export bulk VCF file. Please try again.";
       toast.error(errorMessage);
     }
@@ -323,7 +315,6 @@ const BusinessCardApp = () => {
       window.URL.revokeObjectURL(url);
       toast.success("CSV file downloaded successfully");
     } catch (error) {
-      console.error("Error exporting CSV:", error);
       const errorMessage = error.toastMessage || error.response?.data?.error || "Failed to export CSV file. Please try again.";
       toast.error(errorMessage);
     }
@@ -340,7 +331,6 @@ const BusinessCardApp = () => {
       window.URL.revokeObjectURL(url);
       toast.success("Excel file downloaded successfully");
     } catch (error) {
-      console.error("Error exporting XLSX:", error);
       const errorMessage = error.toastMessage || error.response?.data?.error || "Failed to export Excel file. Please try again.";
       toast.error(errorMessage);
     }
@@ -356,17 +346,15 @@ const BusinessCardApp = () => {
       setQrMode(isBulk ? "bulk" : "single");
       setQrModalOpen(true);
     } catch (error) {
-      console.error("Error generating QR:", error);
+      // QR generation error handled silently
     }
   };
 
   // Contact editing
   const updateContact = (index, field, value) => {
-    console.log(`Updating contact ${index}, field: ${field}, value:`, value);
     const updatedContacts = [...processedContacts];
     updatedContacts[index] = { ...updatedContacts[index], [field]: value };
     setProcessedContacts(updatedContacts);
-    console.log("Updated contacts:", updatedContacts);
   };
 
   // Clear processed contacts when switching modes
@@ -824,11 +812,8 @@ const BusinessCardApp = () => {
                             onClick={(e) => {
                               e.preventDefault();
                               e.stopPropagation();
-                              console.log("Add Website button clicked for contact:", index);
                               const websites = Array.isArray(contact.websites) ? [...contact.websites] : (contact.websites ? [contact.websites] : []);
-                              console.log("Current websites:", websites);
                               websites.push("");
-                              console.log("New websites array:", websites);
                               updateContact(index, "websites", websites);
                             }}
                           >

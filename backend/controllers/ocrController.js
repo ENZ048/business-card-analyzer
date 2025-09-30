@@ -533,7 +533,6 @@ function preprocessText(text) {
 }
 
 async function processOCR(filePath) {
-  console.log("🔎 OCR: Processing file ->", filePath);
   
   try {
     // Use both text detection and document text detection for better accuracy
@@ -548,8 +547,6 @@ async function processOCR(filePath) {
       // Fallback to regular text detection
       text = textResult.textAnnotations[0].description;
     }
-    
-    console.log("📝 Extracted Text:", text);
     
     const [logoResult] = await visionClient.logoDetection(filePath);
     const logos = logoResult.logoAnnotations?.map(l => l.description) || [];
@@ -602,7 +599,6 @@ async function processInBatches(items, batchSize, fn) {
 
 // ---------- Enhanced GPT Parsing with Better Website Extraction ----------
 async function parseCardsWithGPT(cards, batchSize = 5) {
-  console.log(`🤖 GPT: Parsing ${cards.length} cards in batches of ${batchSize}`);
   
   const batches = [];
   for (let i = 0; i < cards.length; i += batchSize) {
@@ -688,7 +684,7 @@ Return valid JSON only:`;
         const gptCards = parsed.cards;
         
         if (gptCards.length !== batch.length) {
-          console.warn(`GPT returned ${gptCards.length} cards, expected ${batch.length}`);
+          // GPT returned different number of cards than expected
         }
 
         return gptCards.map((r, i) => normalizeCard(r, batch[i], offset + i + 1));
@@ -851,7 +847,6 @@ async function checkUserUsage(userId, scanCount = 1) {
 async function processBusinessCard(req, res) {
   try {
     const { userId, mode } = req.body;
-    console.log(`📥 Received upload from user ${userId}, Mode: ${mode}`);
     
     if (!userId) return res.status(400).json({ error: "userId is required" });
 
@@ -883,7 +878,6 @@ async function processBusinessCard(req, res) {
         if (back) {
           const backOCR = await processOCR(back.path);
           fs.unlinkSync(back.path);
-          console.log(`🔗 Forced merge (single mode): ${front.filename} + ${back.filename}`);
           pairedCards = [mergeCards(frontOCR, backOCR)];
         } else {
           pairedCards = [frontOCR];
@@ -919,7 +913,6 @@ async function processBusinessCard(req, res) {
       const validOCRResults = ocrResults.filter(Boolean);
       
       pairedCards = pairCards(validOCRResults);
-      console.log(`📑 Bulk mode: ${bulkFiles.length} files → ${validOCRResults.length} OCR results → ${pairedCards.length} merged cards`);
       
     } else {
       return res.status(400).json({ error: "Invalid mode. Use 'single' or 'bulk'" });
@@ -963,20 +956,12 @@ async function processBusinessCard(req, res) {
       }
       
       await currentUsage.incrementUsage(actualScanCount, mode);
-      console.log(`📊 Usage updated for user ${userId}: +${actualScanCount} scans (${currentUsage.cardScansUsed}/${currentUsage.cardScansLimit}) - ${mode} mode`);
     } catch (usageError) {
       console.error('Error updating usage:', usageError);
       // Don't fail the request if usage update fails
     }
 
     // COMPLETE
-    console.log("📊 Final Parsed & Validated Results:");
-    console.log(`   Total Valid Contacts: ${validatedCards.length}`);
-    console.log(`   Average Confidence: ${(validatedCards.reduce((sum, card) => sum + card.confidence, 0) / validatedCards.length).toFixed(1)}%`);
-    
-    validatedCards.forEach((card, idx) => {
-      console.log(`   #${idx + 1}: ${card.fullName || "N/A"} | ${card.company || "N/A"} | Confidence: ${card.confidence}% | Websites: ${card.websites?.length || 0}`);
-    });
     
     return res.json({ 
       success: true, 

@@ -140,7 +140,6 @@ function mergeParsedCards(cards) {
     }
   }
 
-  console.log(`🔄 Card merge complete: ${cards.length} cards → ${merged.length} unique entities`);
   return merged;
 }
 

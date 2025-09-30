@@ -53,17 +53,7 @@ async function downloadCSV(req, res) {
       return res.status(400).json({ error: "No contacts provided" });
     }
 
-    // DEBUG: Log the first contact to see if websites field exists
-    console.log(
-      "🔍 Debug - First contact:",
-      JSON.stringify(contacts[0], null, 2)
-    );
-    console.log("🔍 Debug - Websites field:", contacts[0]?.websites);
-
     const csvData = generateCSV(contacts, fields);
-
-    // DEBUG: Log first few lines of CSV
-    console.log("🔍 Debug - CSV preview:", csvData.split("\n").slice(0, 3));
 
     res.setHeader(
       "Content-Disposition",
@@ -90,12 +80,6 @@ async function getVCFQR(req, res) {
       vcfContent = generateBulkVCF(contacts);
       filename = `contacts_${contacts.length}.vcf`;
       
-      // DEBUG: Log bulk VCF generation
-      console.log("🔍 QR Debug - Bulk mode activated");
-      console.log("🔍 QR Debug - Number of contacts:", contacts.length);
-      console.log("🔍 QR Debug - VCF content length:", vcfContent.length);
-      console.log("🔍 QR Debug - VCF content preview (first 500 chars):", vcfContent.substring(0, 500));
-      console.log("🔍 QR Debug - VCF content preview (last 500 chars):", vcfContent.substring(Math.max(0, vcfContent.length - 500)));
     } else if (contact) {
       // Single mode: generate QR for one contact
       vcfContent = generateVCF(contact);

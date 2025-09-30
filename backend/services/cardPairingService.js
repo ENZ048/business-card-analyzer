@@ -238,7 +238,6 @@ function pairCards(ocrResults, threshold = 0.6) {
   const used = new Set();
   const pairs = [];
 
-  console.log(`🔗 Starting pairing process for ${ocrResults.length} cards`);
 
   for (let i = 0; i < ocrResults.length; i++) {
     if (used.has(i)) continue;
@@ -280,19 +279,11 @@ function pairCards(ocrResults, threshold = 0.6) {
     );
 
     if (mergeAllowed) {
-      console.log(
-        `✅ Merging ${ocrResults[i].filename} + ${ocrResults[bestMatch].filename} ` +
-        `(score: ${bestScore.toFixed(2)}, signals: [${bestSignals.join(", ")}], evidence: ${hasStrongEvidence})`
-      );
       used.add(i);
       used.add(bestMatch);
       pairs.push(mergeCards(ocrResults[i], ocrResults[bestMatch]));
     } else {
       if (bestMatch !== -1) {
-        console.log(
-          `❌ Skipped merge for ${ocrResults[i].filename} + ${ocrResults[bestMatch].filename} ` +
-          `(score: ${bestScore.toFixed(2)}, signals: [${bestSignals.join(", ")}], evidence: ${hasStrongEvidence})`
-        );
       }
       used.add(i);
       pairs.push({
@@ -306,7 +297,6 @@ function pairCards(ocrResults, threshold = 0.6) {
     }
   }
 
-  console.log(`🔗 Pairing complete: ${ocrResults.length} cards → ${pairs.length} paired results`);
   return pairs;
 }
 

@@ -59,26 +59,19 @@ function generateVCF(contact) {
   if (address) vcf += `ADR;TYPE=WORK:;;${address}\n`;
   vcf += `END:VCARD\n`;
 
-  // DEBUG: Log single VCF generation
-  console.log("🔍 VCF Debug - Generated VCF for:", fullName || "Unknown");
-  console.log("🔍 VCF Debug - VCF content:", vcf);
 
   return vcf;
 }
 
 // Generate bulk VCF (all contacts concatenated)
 function generateBulkVCF(contacts) {
-  console.log("🔍 Bulk VCF Debug - Starting bulk VCF generation for", contacts.length, "contacts");
   
   const vcfStrings = contacts.map((c, index) => {
     const vcf = generateVCF(c);
-    console.log(`🔍 Bulk VCF Debug - Contact ${index + 1}:`, c.fullName || "Unknown");
     return vcf;
   });
   
   const bulkVCF = vcfStrings.join("\n");
-  console.log("🔍 Bulk VCF Debug - Final bulk VCF length:", bulkVCF.length);
-  console.log("🔍 Bulk VCF Debug - Number of VCF entries:", vcfStrings.length);
   
   return bulkVCF;
 }
@@ -112,10 +105,6 @@ function generateCSV(contacts, fields) {
     address: "Address"
   };
 
-  // DEBUG: Log field processing
-  console.log("🔍 CSV Debug - Fields parameter:", fields);
-  console.log("🔍 CSV Debug - Field list:", fieldList);
-  console.log("🔍 CSV Debug - Header map keys:", Object.keys(headerMap));
 
   // Create styled headers
   const headers = fieldList.map(field => headerMap[field] || field);
