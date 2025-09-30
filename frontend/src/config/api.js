@@ -3,6 +3,8 @@
 export const API_CONFIG = {
   // Development
   // BASE_URL: 'http://localhost:5000',
+
+  //made changes
   
   // Production - Backend API URL
   BASE_URL: 'https://api.superscanai.com',
