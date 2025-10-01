@@ -526,7 +526,7 @@ const BusinessCardApp = () => {
                     Front Image *
                   </label>
                   <div
-                    className="border-2 border-dashed border-premium-border rounded-xl p-6 text-center cursor-pointer hover:border-premium-orange hover:bg-premium-orange-muted transition-colors"
+                    className="border-2 border-dashed border-premium-border rounded-xl p-6 text-center cursor-pointer hover:border-blue-500 hover:bg-blue-50 transition-colors"
                     onDrop={(e) => handleDrop(e, false)}
                     onDragOver={handleDragOver}
                     onClick={() => fileInputRef.current?.click()}
@@ -575,7 +575,7 @@ const BusinessCardApp = () => {
                     </div>
                   </label>
                   <div
-                    className="border-2 border-dashed border-premium-border rounded-xl p-6 text-center cursor-pointer hover:border-premium-orange hover:bg-premium-orange-muted transition-colors"
+                    className="border-2 border-dashed border-premium-border rounded-xl p-6 text-center cursor-pointer hover:border-blue-500 hover:bg-blue-50 transition-colors"
                     onDrop={(e) => handleDrop(e, false)}
                     onDragOver={handleDragOver}
                     onClick={() => backFileInputRef.current?.click()}
@@ -916,15 +916,15 @@ const BusinessCardApp = () => {
               {/* Creative Instruction */}
               <div className="mb-6 p-4 bg-premium-beige-light border border-premium-border rounded-xl">
                 <div className="flex items-start gap-3">
-                  <div className="flex-shrink-0 w-8 h-8 bg-premium-orange rounded-full flex items-center justify-center">
-                    <span className="text-premium-white text-sm font-bold">✨</span>
+                  <div className="flex-shrink-0 w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
+                    <span className="text-white text-sm font-bold">✨</span>
                   </div>
                   <div>
                     <h3 className="text-sm font-semibold text-slate-800 mb-1">
                       Smart Card Processing
                     </h3>
                     <p className="text-sm text-premium-gray leading-relaxed">
-                      <span className="font-medium text-premium-orange">Pro Tip:</span> Upload both front and back sides of your business cards! 
+                      <span className="font-medium text-blue-600">Pro Tip:</span> Upload both front and back sides of your business cards! 
                       Our AI will intelligently merge the information from both sides, creating complete and accurate contact profiles. 
                       Just drop all your card images - we'll handle the rest! 🚀
                     </p>
@@ -933,7 +933,7 @@ const BusinessCardApp = () => {
               </div>
 
               <div
-                className="border-2 border-dashed border-premium-border rounded-xl p-12 text-center cursor-pointer hover:border-premium-orange hover:bg-premium-orange-muted transition-colors"
+                className="border-2 border-dashed border-premium-border rounded-xl p-12 text-center cursor-pointer hover:border-blue-500 hover:bg-blue-50 transition-colors"
                 onDrop={(e) => handleDrop(e, true)}
                 onDragOver={handleDragOver}
                 onClick={() => bulkFileInputRef.current?.click()}
@@ -1263,7 +1263,7 @@ const BusinessCardApp = () => {
               })}
             </div>
 
-            {/* User Profile and Actions - Desktop */}
+            {/* User Profile angitd Actions - Desktop */}
             <div className="flex items-center space-x-4">
               {/* User Info - Desktop */}
               <div className="hidden sm:flex items-center space-x-3">

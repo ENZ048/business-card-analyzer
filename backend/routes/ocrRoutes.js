@@ -39,8 +39,10 @@ router.post(
     if (err instanceof multer.MulterError) {
       if (err.code === 'LIMIT_FILE_SIZE') {
         return res.status(400).json({ 
-          error: 'File too large. Maximum file size is 300MB per file.',
-          code: 'FILE_TOO_LARGE'
+          error: 'File too large. Maximum file size is 300MB per file. Please compress your image or use a smaller file.',
+          code: 'FILE_TOO_LARGE',
+          maxFileSize: '300MB',
+          suggestion: 'Try compressing your image using online tools or reducing the image resolution.'
         });
       }
       if (err.code === 'LIMIT_FILE_COUNT') {
