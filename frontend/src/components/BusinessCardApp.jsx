@@ -79,6 +79,8 @@ const BusinessCardApp = () => {
   const [bulkImages, setBulkImages] = useState([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [processedContacts, setProcessedContacts] = useState([]);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [processingStage, setProcessingStage] = useState('');
   const [selectedFields, setSelectedFields] = useState({
     fullName: true,
     jobTitle: true,
@@ -255,9 +257,61 @@ const BusinessCardApp = () => {
     }
 
     setIsProcessing(true);
+    setUploadProgress(0);
+    setProcessingStage('Uploading images...');
+
+    // Simulate backend processing progress
+    let simulatedProgress = 30;
+    let progressInterval = null;
 
     try {
-      const result = await apiService.uploadSingleCard(user.id, frontImage, backImage);
+      const result = await apiService.uploadSingleCard(
+        user.id,
+        frontImage,
+        backImage,
+        (progressEvent) => {
+          const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+          const uploadProgress = Math.round(percentCompleted * 0.3); // Upload is 30% of total
+          setUploadProgress(uploadProgress);
+
+          if (percentCompleted < 100) {
+            setProcessingStage('Uploading images...');
+          } else {
+            // Upload complete, start simulating backend processing
+            setProcessingStage('Compressing image...');
+            simulatedProgress = 30;
+
+            // Clear any existing interval
+            if (progressInterval) clearInterval(progressInterval);
+
+            // Simulate incremental progress for backend processing
+            progressInterval = setInterval(() => {
+              simulatedProgress += 2;
+
+              // Different stages based on progress
+              if (simulatedProgress < 50) {
+                setProcessingStage('Compressing image...');
+              } else if (simulatedProgress < 70) {
+                setProcessingStage('Running OCR...');
+              } else if (simulatedProgress < 90) {
+                setProcessingStage('Extracting information with AI...');
+              } else if (simulatedProgress < 95) {
+                setProcessingStage('Finalizing...');
+              }
+
+              // Cap at 95% until actual completion
+              setUploadProgress(Math.min(simulatedProgress, 95));
+
+              if (simulatedProgress >= 95) {
+                clearInterval(progressInterval);
+              }
+            }, 400); // Update every 400ms (faster for single card)
+          }
+        }
+      );
+
+      // Clear interval when done
+      if (progressInterval) clearInterval(progressInterval);
       
       // Add sourceMode to each contact and normalize data
       const contactsWithMode = (result.data || []).map((contact) => ({
@@ -268,10 +322,18 @@ const BusinessCardApp = () => {
           ? contact.websites
           : (contact.websites ? [contact.websites] : [])),
       }));
-      
+
       setProcessedContacts(contactsWithMode);
-      setIsProcessing(false);
-      
+      setUploadProgress(100);
+      setProcessingStage('Complete!');
+
+      // Small delay before resetting
+      setTimeout(() => {
+        setIsProcessing(false);
+        setUploadProgress(0);
+        setProcessingStage('');
+      }, 1000);
+
       // Show success toast
       toast.success(`Business card processed successfully! Found ${contactsWithMode.length} contact(s).`, {
         position: "top-right",
@@ -292,7 +354,11 @@ const BusinessCardApp = () => {
         }, 100);
       }
     } catch (error) {
+      // Clear interval on error
+      if (progressInterval) clearInterval(progressInterval);
       setIsProcessing(false);
+      setUploadProgress(0);
+      setProcessingStage('');
       const errorMessage = error.toastMessage || error.response?.data?.error || "Failed to process business card. Please try again.";
       toast.error(errorMessage);
     }
@@ -305,9 +371,60 @@ const BusinessCardApp = () => {
     }
 
     setIsProcessing(true);
+    setUploadProgress(0);
+    setProcessingStage('Uploading images...');
+
+    // Simulate backend processing progress
+    let simulatedProgress = 25;
+    let progressInterval = null;
 
     try {
-      const result = await apiService.uploadBulkCards(user.id, bulkImages);
+      const result = await apiService.uploadBulkCards(
+        user.id,
+        bulkImages,
+        (progressEvent) => {
+          const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+          const uploadProgress = Math.round(percentCompleted * 0.25); // Upload is 25% of total
+          setUploadProgress(uploadProgress);
+
+          if (percentCompleted < 100) {
+            setProcessingStage(`Uploading ${bulkImages.length} images...`);
+          } else {
+            // Upload complete, start simulating backend processing
+            setProcessingStage('Compressing images...');
+            simulatedProgress = 25;
+
+            // Clear any existing interval
+            if (progressInterval) clearInterval(progressInterval);
+
+            // Simulate incremental progress for backend processing
+            progressInterval = setInterval(() => {
+              simulatedProgress += 1;
+
+              // Different stages based on progress
+              if (simulatedProgress < 40) {
+                setProcessingStage('Compressing images...');
+              } else if (simulatedProgress < 60) {
+                setProcessingStage('Running OCR analysis...');
+              } else if (simulatedProgress < 85) {
+                setProcessingStage('Extracting contact information...');
+              } else if (simulatedProgress < 95) {
+                setProcessingStage('Finalizing results...');
+              }
+
+              // Cap at 95% until actual completion
+              setUploadProgress(Math.min(simulatedProgress, 95));
+
+              if (simulatedProgress >= 95) {
+                clearInterval(progressInterval);
+              }
+            }, 500); // Update every 500ms
+          }
+        }
+      );
+
+      // Clear interval when done
+      if (progressInterval) clearInterval(progressInterval);
       
       // Add sourceMode to each contact and normalize data
       const contactsWithMode = (result.data || []).map((contact) => ({
@@ -318,10 +435,18 @@ const BusinessCardApp = () => {
           ? contact.websites
           : (contact.websites ? [contact.websites] : [])),
       }));
-      
+
       setProcessedContacts(contactsWithMode);
-      setIsProcessing(false);
-      
+      setUploadProgress(100);
+      setProcessingStage('Complete!');
+
+      // Small delay before resetting
+      setTimeout(() => {
+        setIsProcessing(false);
+        setUploadProgress(0);
+        setProcessingStage('');
+      }, 1000);
+
       // Show success toast
       toast.success(`🎉 Bulk processing completed! Successfully processed ${contactsWithMode.length} business card(s).`, {
         position: "top-right",
@@ -342,7 +467,11 @@ const BusinessCardApp = () => {
         }, 100);
       }
     } catch (error) {
+      // Clear interval on error
+      if (progressInterval) clearInterval(progressInterval);
       setIsProcessing(false);
+      setUploadProgress(0);
+      setProcessingStage('');
       const errorMessage = error.toastMessage || error.response?.data?.error || "Failed to process bulk cards. Please try again.";
       toast.error(errorMessage);
     }
@@ -708,6 +837,22 @@ const BusinessCardApp = () => {
                   </>
                 )}
               </Button>
+
+              {/* Progress Bar */}
+              {isProcessing && (
+                <div className="mt-4 space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-premium-gray">{processingStage}</span>
+                    <span className="text-premium-orange font-medium">{uploadProgress}%</span>
+                  </div>
+                  <div className="w-full bg-gray-200 rounded-full h-2.5">
+                    <div
+                      className="bg-premium-orange h-2.5 rounded-full transition-all duration-300 ease-out"
+                      style={{ width: `${uploadProgress}%` }}
+                    ></div>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Processed Contact Form - Only for Single Mode */}
@@ -1081,6 +1226,25 @@ const BusinessCardApp = () => {
                   </>
                 )}
               </Button>
+
+              {/* Progress Bar for Bulk */}
+              {isProcessing && (
+                <div className="mt-4 space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-premium-gray">{processingStage}</span>
+                    <span className="text-premium-orange font-medium">{uploadProgress}%</span>
+                  </div>
+                  <div className="w-full bg-gray-200 rounded-full h-2.5">
+                    <div
+                      className="bg-premium-orange h-2.5 rounded-full transition-all duration-300 ease-out"
+                      style={{ width: `${uploadProgress}%` }}
+                    ></div>
+                  </div>
+                  <p className="text-xs text-premium-gray text-center mt-2">
+                    This may take several minutes for large batches
+                  </p>
+                </div>
+              )}
             </div>
 
             {/* Field Selection - Only for Bulk Mode */}

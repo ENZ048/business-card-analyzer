@@ -190,7 +190,7 @@ export const apiService = {
   },
 
   // OCR Processing
-  uploadSingleCard: async (userId, frontImage, backImage = null) => {
+  uploadSingleCard: async (userId, frontImage, backImage = null, onUploadProgress = null) => {
     const formData = new FormData();
     formData.append('userId', userId);
     formData.append('mode', 'single');
@@ -204,11 +204,12 @@ export const apiService = {
         'Content-Type': 'multipart/form-data',
       },
       timeout: 600000, // 10 minutes for uploads (compression + OCR + GPT)
+      onUploadProgress: onUploadProgress,
     });
     return response.data;
   },
 
-  uploadBulkCards: async (userId, images) => {
+  uploadBulkCards: async (userId, images, onUploadProgress = null) => {
     const formData = new FormData();
     formData.append('userId', userId);
     formData.append('mode', 'bulk');
@@ -221,6 +222,7 @@ export const apiService = {
         'Content-Type': 'multipart/form-data',
       },
       timeout: 900000, // 15 minutes for bulk uploads (handles 100 images with delays)
+      onUploadProgress: onUploadProgress,
     });
     return response.data;
   },
