@@ -6,6 +6,50 @@ const http = require("http");
 const cors = require("cors");
 const cookieParser = require("cookie-parser");
 
+// Logging setup
+const winston = require("winston");
+const logger = winston.createLogger({
+  level: process.env.LOG_LEVEL || "info",
+  format: winston.format.combine(
+    winston.format.timestamp({ format: "YYYY-MM-DD HH:mm:ss" }),
+    winston.format.errors({ stack: true }),
+    winston.format.splat(),
+    winston.format.json()
+  ),
+  defaultMeta: { service: "business-card-backend" },
+  transports: [
+    // Write all logs with importance level of 'error' or less to error.log
+    new winston.transports.File({
+      filename: path.join(__dirname, "logs", "error.log"),
+      level: "error",
+      maxsize: 5242880, // 5MB
+      maxFiles: 5
+    }),
+    // Write all logs to combined.log
+    new winston.transports.File({
+      filename: path.join(__dirname, "logs", "combined.log"),
+      maxsize: 5242880, // 5MB
+      maxFiles: 5
+    })
+  ]
+});
+
+// Console logging for non-production
+if (process.env.NODE_ENV !== "production") {
+  logger.add(new winston.transports.Console({
+    format: winston.format.combine(
+      winston.format.colorize(),
+      winston.format.simple()
+    )
+  }));
+}
+
+// Create logs directory if it doesn't exist
+const logsDir = path.join(__dirname, "logs");
+if (!fs.existsSync(logsDir)) {
+  fs.mkdirSync(logsDir, { recursive: true });
+}
+
 // Database connection
 const connectDB = require("./config/database");
 
@@ -50,6 +94,31 @@ if (process.env.NODE_ENV === "production") {
 app.use(express.json({ limit: '300mb' }));
 app.use(express.urlencoded({ limit: '300mb', extended: true }));
 app.use(cookieParser());
+
+// Request logging middleware
+app.use((req, res, next) => {
+  const start = Date.now();
+
+  res.on("finish", () => {
+    const duration = Date.now() - start;
+    const logData = {
+      method: req.method,
+      url: req.url,
+      status: res.statusCode,
+      duration: `${duration}ms`,
+      ip: req.ip || req.connection.remoteAddress,
+      userAgent: req.get("user-agent")
+    };
+
+    if (res.statusCode >= 400) {
+      logger.warn("Request completed with error", logData);
+    } else {
+      logger.info("Request completed", logData);
+    }
+  });
+
+  next();
+});
 
 // ---------- Connect to Database ----------
 connectDB();
@@ -121,6 +190,18 @@ module.exports.setAuthCookie = setAuthCookie;
 // ---------- Error Handling Middleware ----------
 // Global error handler for multer and other upload errors
 app.use((error, req, res, next) => {
+  // Log the error with context
+  logger.error("Application error", {
+    error: error.message,
+    stack: error.stack,
+    code: error.code,
+    method: req.method,
+    url: req.url,
+    ip: req.ip || req.connection.remoteAddress,
+    userAgent: req.get("user-agent"),
+    body: req.body ? JSON.stringify(req.body).substring(0, 500) : undefined
+  });
+
   if (error.code === 'LIMIT_FILE_SIZE') {
     return res.status(400).json({
       error: 'File too large. Maximum file size is 300MB per file. Please compress your image or use a smaller file.',
@@ -147,7 +228,39 @@ app.use((error, req, res, next) => {
       code: 'INVALID_FILE_TYPE'
     });
   }
-  next(error);
+
+  // Generic error response
+  const statusCode = error.statusCode || 500;
+  res.status(statusCode).json({
+    error: process.env.NODE_ENV === "production"
+      ? "Internal server error"
+      : error.message,
+    code: error.code || "INTERNAL_ERROR"
+  });
+});
+
+// ---------- Uncaught Exception & Rejection Handlers ----------
+process.on("uncaughtException", (error) => {
+  logger.error("Uncaught Exception", {
+    error: error.message,
+    stack: error.stack
+  });
+  console.error("UNCAUGHT EXCEPTION! Shutting down...");
+  console.error(error);
+  process.exit(1);
+});
+
+process.on("unhandledRejection", (reason, promise) => {
+  logger.error("Unhandled Promise Rejection", {
+    reason: reason instanceof Error ? reason.message : String(reason),
+    stack: reason instanceof Error ? reason.stack : undefined,
+    promise: String(promise)
+  });
+  console.error("UNHANDLED REJECTION! Shutting down...");
+  console.error(reason);
+  server.close(() => {
+    process.exit(1);
+  });
 });
 
 // ---------- Start Server ----------
@@ -155,5 +268,22 @@ const PORT = process.env.PORT || 5000;
 const HOST = process.env.HOST || "127.0.0.1";
 
 server.listen(PORT, HOST, () => {
+  logger.info(`Server started on http://${HOST}:${PORT}`, {
+    environment: process.env.NODE_ENV || "development",
+    port: PORT,
+    host: HOST
+  });
   console.log(`🚀 Server running on http://${HOST}:${PORT}`);
 });
+
+// Graceful shutdown
+process.on("SIGTERM", () => {
+  logger.info("SIGTERM signal received: closing HTTP server");
+  server.close(() => {
+    logger.info("HTTP server closed");
+    process.exit(0);
+  });
+});
+
+// Export logger for use in other modules
+module.exports.logger = logger;

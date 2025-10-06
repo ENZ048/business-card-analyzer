@@ -7,7 +7,7 @@ const API_BASE_URL = getApiBaseUrl();
 // Create axios instance with default configuration
 const api = axios.create({
   baseURL: API_BASE_URL,
-  timeout: 30000, // 30 seconds timeout
+  timeout: 300000, // 5 minutes timeout (for large batch uploads)
   headers: {
     'Content-Type': 'application/json',
   },
@@ -203,6 +203,7 @@ export const apiService = {
       headers: {
         'Content-Type': 'multipart/form-data',
       },
+      timeout: 600000, // 10 minutes for uploads (compression + OCR + GPT)
     });
     return response.data;
   },
@@ -219,6 +220,7 @@ export const apiService = {
       headers: {
         'Content-Type': 'multipart/form-data',
       },
+      timeout: 900000, // 15 minutes for bulk uploads (handles 100 images with delays)
     });
     return response.data;
   },

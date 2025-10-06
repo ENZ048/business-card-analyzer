@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "react-toastify";
 import {
@@ -91,10 +91,71 @@ const BusinessCardApp = () => {
   const [qrModalOpen, setQrModalOpen] = useState(false);
   const [qrData, setQrData] = useState("");
   const [qrMode, setQrMode] = useState("single"); // "single" or "bulk"
-  
+
   // Navbar state
   const [activeTab, setActiveTab] = useState('dashboard');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  // Memoized ObjectURLs to prevent recreation on every render
+  const frontImageUrl = useMemo(() => {
+    if (frontImage) {
+      return URL.createObjectURL(frontImage);
+    }
+    return null;
+  }, [frontImage]);
+
+  const backImageUrl = useMemo(() => {
+    if (backImage) {
+      return URL.createObjectURL(backImage);
+    }
+    return null;
+  }, [backImage]);
+
+  // Use state for bulk image URLs to defer creation
+  const [bulkImageUrls, setBulkImageUrls] = useState([]);
+
+  // Cleanup ObjectURLs on unmount or when images change
+  useEffect(() => {
+    return () => {
+      if (frontImageUrl) URL.revokeObjectURL(frontImageUrl);
+    };
+  }, [frontImageUrl]);
+
+  useEffect(() => {
+    return () => {
+      if (backImageUrl) URL.revokeObjectURL(backImageUrl);
+    };
+  }, [backImageUrl]);
+
+  // Create bulk image URLs asynchronously to avoid blocking UI
+  useEffect(() => {
+    // Cleanup old URLs
+    if (bulkImageUrls.length > 0) {
+      bulkImageUrls.forEach(url => URL.revokeObjectURL(url));
+    }
+
+    if (bulkImages.length === 0) {
+      setBulkImageUrls([]);
+      return;
+    }
+
+    // Use multiple deferred chunks to create URLs without blocking
+    const timeoutId = setTimeout(() => {
+      // Create URLs in batches to prevent blocking
+      const maxPreviews = Math.min(8, bulkImages.length); // Reduced to 8 for better performance
+      const urls = [];
+
+      for (let i = 0; i < maxPreviews; i++) {
+        urls.push(URL.createObjectURL(bulkImages[i]));
+      }
+
+      setBulkImageUrls(urls);
+    }, 50); // Reduced delay for faster response
+
+    return () => {
+      clearTimeout(timeoutId);
+    };
+  }, [bulkImages]);
 
   // Menu items
   const menuItems = [
@@ -126,20 +187,36 @@ const BusinessCardApp = () => {
 
 
 
-  // File handling functions
+  // File handling functions - heavily optimized for large batches
   const handleFileSelect = (files, isBulk = false) => {
     if (isBulk) {
-      const fileArray = Array.from(files);
-      // Validate file types
-      const invalidFiles = fileArray.filter(file => !file.type.startsWith('image/'));
-      if (invalidFiles.length > 0) {
-        toast.error(`Please select only image files. ${invalidFiles.length} invalid file(s) removed.`);
-      }
-      const validFiles = fileArray.filter(file => file.type.startsWith('image/'));
-      setBulkImages(validFiles);
-      if (validFiles.length > 0) {
-        toast.success(`${validFiles.length} image(s) selected for bulk processing`);
-      }
+      // Immediately return to unblock UI, process files asynchronously
+      setTimeout(() => {
+        const validFiles = [];
+        let invalidCount = 0;
+
+        // Use simple for loop instead of Array.from + filter (much faster)
+        for (let i = 0; i < files.length; i++) {
+          const file = files[i];
+          if (file.type.startsWith('image/')) {
+            validFiles.push(file);
+          } else {
+            invalidCount++;
+          }
+        }
+
+        if (invalidCount > 0) {
+          toast.error(`${invalidCount} invalid file(s) removed. Only image files are allowed.`);
+        }
+
+        // Update state
+        setBulkImages(validFiles);
+
+        // Only show success toast for small batches
+        if (validFiles.length > 0 && validFiles.length <= 20) {
+          toast.success(`${validFiles.length} image(s) selected`);
+        }
+      }, 0); // Execute in next event loop tick
     } else {
       if (files.length > 0) {
         if (!files[0].type.startsWith('image/')) {
@@ -534,7 +611,7 @@ const BusinessCardApp = () => {
                     {frontImage ? (
                       <div className="space-y-2">
                         <img
-                          src={URL.createObjectURL(frontImage)}
+                          src={frontImageUrl}
                           alt="Front"
                           className="w-full h-32 object-cover rounded-lg"
                         />
@@ -583,7 +660,7 @@ const BusinessCardApp = () => {
                     {backImage ? (
                       <div className="space-y-2">
                         <img
-                          src={URL.createObjectURL(backImage)}
+                          src={backImageUrl}
                           alt="Back"
                           className="w-full h-32 object-cover rounded-lg"
                         />
@@ -940,22 +1017,30 @@ const BusinessCardApp = () => {
               >
                 {bulkImages.length > 0 ? (
                   <div className="space-y-4">
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                      {bulkImages.map((image, index) => (
-                        <div key={index} className="relative">
-                          <img
-                            src={URL.createObjectURL(image)}
-                            alt={`Card ${index + 1}`}
-                            className="w-full h-24 object-cover rounded-lg"
-                          />
-                          <span className="absolute top-2 right-2 bg-premium-orange text-premium-white text-xs px-2 py-1 rounded-full">
-                            {index + 1}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
+                    {bulkImageUrls.length > 0 ? (
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        {bulkImageUrls.map((url, index) => (
+                          <div key={index} className="relative">
+                            <img
+                              src={url}
+                              alt={`Card ${index + 1}`}
+                              className="w-full h-24 object-cover rounded-lg"
+                            />
+                            <span className="absolute top-2 right-2 bg-premium-orange text-premium-white text-xs px-2 py-1 rounded-full">
+                              {index + 1}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-center py-8">
+                        <Loader2 className="w-8 h-8 animate-spin text-premium-gray" />
+                        <span className="ml-2 text-premium-gray">Generating previews...</span>
+                      </div>
+                    )}
                     <p className="text-premium-gray">
                       {bulkImages.length} images selected
+                      {bulkImages.length > 8 && " (showing first 8 previews)"}
                     </p>
                   </div>
                 ) : (

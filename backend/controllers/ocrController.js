@@ -2,6 +2,7 @@
 const vision = require("@google-cloud/vision");
 const fs = require("fs");
 const path = require("path");
+const sharp = require("sharp");
 const { pairCards, mergeCards } = require("../services/cardPairingService");
 const OpenAI = require("openai");
 const { v4: uuidv4 } = require("uuid");
@@ -28,7 +29,7 @@ const NAME_EXCLUDE_WORDS = [
   'Telephone', 'Fax', 'Director', 'Manager', 'CEO', 'CTO', 'Founder'
 ];
 
-const BULK_OCR_BATCH_SIZE = 10; // OCR batch size tuned for up to 100 uploads
+const BULK_OCR_BATCH_SIZE = 3; // Reduced to prevent Google API quota exhaustion
 
 // ---------- Helpers ----------
 
@@ -519,27 +520,96 @@ function cleanAddress(text) {
   return lines.join(', ');
 }
 
+// ---------- Image Compression ----------
+async function compressImage(filePath) {
+  const tempPath = filePath + '.compressed.jpg';
+
+  try {
+    // Get image metadata
+    const metadata = await sharp(filePath).metadata();
+    const fileSizeInMB = fs.statSync(filePath).size / (1024 * 1024);
+
+    // If image is already small enough (< 4MB) and reasonably sized, skip compression
+    if (fileSizeInMB < 4 && metadata.width <= 2000 && metadata.height <= 2000) {
+      return filePath;
+    }
+
+    // Compress image to reduce bandwidth
+    await sharp(filePath)
+      .resize(2000, 2000, { // Max 2000x2000 pixels (good enough for OCR)
+        fit: 'inside',
+        withoutEnlargement: true
+      })
+      .jpeg({ quality: 85 }) // 85% quality JPEG
+      .toFile(tempPath);
+
+    // Replace original with compressed
+    fs.unlinkSync(filePath);
+    fs.renameSync(tempPath, filePath);
+
+    const newSize = fs.statSync(filePath).size / (1024 * 1024);
+    console.log(`Image compressed: ${fileSizeInMB.toFixed(2)}MB → ${newSize.toFixed(2)}MB`);
+
+    return filePath;
+  } catch (error) {
+    console.error("Image compression error:", error);
+    // If compression fails, clean up and use original
+    if (fs.existsSync(tempPath)) {
+      fs.unlinkSync(tempPath);
+    }
+    return filePath;
+  }
+}
+
+// ---------- Retry Logic with Exponential Backoff ----------
+async function retryWithBackoff(fn, maxRetries = 3, baseDelay = 1000) {
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    try {
+      return await fn();
+    } catch (error) {
+      const isLastAttempt = attempt === maxRetries - 1;
+      const isRetryableError = error.code === 8 || error.code === 13 || error.code === 14 || error.code === 4;
+
+      if (isLastAttempt || !isRetryableError) {
+        throw error;
+      }
+
+      const delay = baseDelay * Math.pow(2, attempt);
+      console.log(`Retry attempt ${attempt + 1}/${maxRetries} after ${delay}ms...`);
+      await new Promise(resolve => setTimeout(resolve, delay));
+    }
+  }
+}
+
 // ---------- Enhanced OCR Processing ----------
 function preprocessText(text) {
   if (!text) return "";
-  
+
   // Fix common OCR errors
   let cleaned = text
     .replace(/[|]/g, 'I') // Common OCR mistake - pipe to I
     .replace(/\s+/g, ' ') // Normalize whitespace
     .replace(/[^\x20-\x7E\n\r]/g, '') // Remove non-ASCII characters except newlines
     .trim();
-    
+
   return cleaned;
 }
 
 async function processOCR(filePath) {
-  
+
   try {
-    // Use both text detection and document text detection for better accuracy
-    const [textResult] = await visionClient.textDetection(filePath);
-    const [documentResult] = await visionClient.documentTextDetection(filePath);
-    
+    // Compress image before sending to Google Vision
+    const compressedPath = await compressImage(filePath);
+
+    // Use retry logic for Vision API calls
+    const [textResult] = await retryWithBackoff(() =>
+      visionClient.textDetection(compressedPath)
+    );
+
+    const [documentResult] = await retryWithBackoff(() =>
+      visionClient.documentTextDetection(compressedPath)
+    );
+
     let text = "";
     if (documentResult.fullTextAnnotation?.text) {
       // Use document text detection for structured text
@@ -548,13 +618,15 @@ async function processOCR(filePath) {
       // Fallback to regular text detection
       text = textResult.textAnnotations[0].description;
     }
-    
-    const [logoResult] = await visionClient.logoDetection(filePath);
+
+    const [logoResult] = await retryWithBackoff(() =>
+      visionClient.logoDetection(compressedPath)
+    );
     const logos = logoResult.logoAnnotations?.map(l => l.description) || [];
-    
+
     // Clean and preprocess the text
     const cleanedText = preprocessText(text);
-    
+
     return {
       filename: path.basename(filePath),
       text: cleanedText,
@@ -564,37 +636,44 @@ async function processOCR(filePath) {
       phones: extractPhones(cleanedText),
       websites: extractWebsites(cleanedText),
     };
-    
+
   } catch (error) {
     console.error("OCR processing error:", error);
     throw error;
   }
 }
 
-// ---------- Enhanced Batch Processing ----------
+// ---------- Enhanced Batch Processing with Delay ----------
 async function processInBatches(items, batchSize, fn) {
   const results = [];
-  
+
   for (let i = 0; i < items.length; i += batchSize) {
     const batch = items.slice(i, i + batchSize);
-    
+
     try {
       const batchResults = await Promise.all(batch.map(fn));
       results.push(...batchResults);
+
+      // Add delay between batches to prevent API rate limiting
+      if (i + batchSize < items.length) {
+        console.log(`Processed ${i + batch.length}/${items.length} items. Waiting 2s before next batch...`);
+        await new Promise(resolve => setTimeout(resolve, 2000)); // 2 second delay
+      }
     } catch (error) {
       console.error(`Batch processing error at ${i}:`, error);
-      // Process individually on batch failure
+      // Process individually on batch failure with delay
       for (const item of batch) {
         try {
           const result = await fn(item);
           results.push(result);
+          await new Promise(resolve => setTimeout(resolve, 500)); // 500ms delay between individual items
         } catch (itemError) {
           console.error("Individual item processing failed:", itemError);
         }
       }
     }
   }
-  
+
   return results;
 }
 
