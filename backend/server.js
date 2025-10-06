@@ -84,15 +84,24 @@ const corsOptions = {
     "https://login.superscanai.com"
   ],
   credentials: true,
-  optionsSuccessStatus: 200
+  optionsSuccessStatus: 200,
+  maxAge: 86400, // Cache preflight for 24 hours to reduce OPTIONS requests
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
+  exposedHeaders: ['Content-Length', 'Content-Type']
 };
 
-// Use env-based CORS
+// Use env-based CORS with explicit preflight handling
 if (process.env.NODE_ENV === "production") {
   app.use(cors(corsOptions));
+
+  // Handle preflight requests explicitly for large file uploads
+  app.options('*', cors(corsOptions));
 } else {
   // In dev allow local dev origin and credentials
-  app.use(cors({ origin: ["http://localhost:5173", "http://localhost:3000"], credentials: true }));
+  const devCorsOptions = { origin: ["http://localhost:5173", "http://localhost:3000"], credentials: true };
+  app.use(cors(devCorsOptions));
+  app.options('*', cors(devCorsOptions));
 }
 
 // Increase body size limits for file uploads
