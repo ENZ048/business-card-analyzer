@@ -447,20 +447,10 @@ const BusinessCardApp = () => {
         setProcessingStage('');
       }, 1000);
 
-      // Show success toast with merge notification if applicable
-      const uploadedCount = bulkImages.length;
-      const processedCount = contactsWithMode.length;
-
-      let successMessage = `🎉 Bulk processing completed! Successfully processed ${processedCount} business card(s).`;
-
-      if (processedCount < uploadedCount) {
-        const mergedCount = uploadedCount - processedCount;
-        successMessage = `🎉 Bulk processing completed! Successfully processed ${processedCount} business card(s). ℹ️ We merged ${mergedCount} duplicate or front/back card(s) to avoid duplicates.`;
-      }
-
-      toast.success(successMessage, {
+      // Show success toast
+      toast.success(`🎉 Bulk processing completed! Successfully processed ${contactsWithMode.length} business card(s).`, {
         position: "top-right",
-        autoClose: 5000,
+        autoClose: 3000,
         hideProgressBar: false,
         closeOnClick: true,
         pauseOnHover: true,
@@ -1296,6 +1286,18 @@ const BusinessCardApp = () => {
                           )
                       )}
                     </div>
+
+                    {/* Merge notification */}
+                    {mode === "bulk" && bulkImages.length > processedContacts.length && (
+                      <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                        <div className="flex items-start gap-2">
+                          <Info className="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" />
+                          <p className="text-sm text-blue-800">
+                            <span className="font-semibold">Smart Merging Applied:</span> We merged {bulkImages.length - processedContacts.length} duplicate or front/back card(s) from your {bulkImages.length} uploaded images to avoid duplicates and create complete contact profiles.
+                          </p>
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
