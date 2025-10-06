@@ -11,7 +11,7 @@ export const API_CONFIG = {
   // BASE_URL: 'https://your-backend-domain.com',
   
   // Timeout settings
-  TIMEOUT: 300000, // 5 minutes (for large batch uploads with compression & retries)
+  TIMEOUT: 3000000, // 5 minutes (for large batch uploads with compression & retries)
   
   // Other configuration options
   RETRY_ATTEMPTS: 3,
