@@ -62,6 +62,11 @@ const adminRoutes = require("./routes/adminRoutes");
 const app = express();
 const server = http.createServer(app);
 
+// Set timeout to 30 minutes for long-running OCR operations
+server.timeout = 1800000; // 30 minutes in milliseconds
+server.keepAliveTimeout = 1800000;
+server.headersTimeout = 1810000; // Slightly higher than keepAliveTimeout
+
 // Trust proxy so secure cookies work behind nginx/Load balancer
 // (nginx terminates TLS and forwards requests to this app)
 app.set("trust proxy", 1);
