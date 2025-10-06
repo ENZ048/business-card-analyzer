@@ -46,7 +46,9 @@ api.interceptors.response.use(
       error.statusCode = status;
       
       // Handle specific error types
-      if (status === 403 && data.code === 'USAGE_LIMIT_EXCEEDED') {
+      if (status === 413) {
+        error.toastMessage = '⚠️ File size too large! Please upload images in smaller batches (total size less than 1GB per upload).';
+      } else if (status === 403 && data.code === 'USAGE_LIMIT_EXCEEDED') {
         error.toastMessage = data.error || 'Usage limit exceeded';
       } else if (status === 401) {
         error.toastMessage = data.error || 'Authentication required';

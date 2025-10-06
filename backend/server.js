@@ -105,8 +105,8 @@ if (process.env.NODE_ENV === "production") {
 }
 
 // Increase body size limits for file uploads
-app.use(express.json({ limit: '300mb' }));
-app.use(express.urlencoded({ limit: '300mb', extended: true }));
+app.use(express.json({ limit: '1000mb' }));
+app.use(express.urlencoded({ limit: '1000mb', extended: true }));
 app.use(cookieParser());
 
 // Request logging middleware

@@ -4,14 +4,14 @@ const multer = require("multer");
 const path = require("path");
 const { processBusinessCard } = require("../controllers/ocrController");
 
-const upload = multer({ 
+const upload = multer({
   dest: "uploads/",
   limits: {
-    fileSize: 300 * 1024 * 1024, // 300MB per file
+    fileSize: 1000 * 1024 * 1024, // 1000MB per file
     files: 100, // Maximum 100 files
-    fieldSize: 300 * 1024 * 1024, // 300MB field size
+    fieldSize: 1000 * 1024 * 1024, // 1000MB field size
     fieldNameSize: 100, // Max field name size
-    fieldValueSize: 300 * 1024 * 1024, // 300MB field value size
+    fieldValueSize: 1000 * 1024 * 1024, // 1000MB field value size
   },
   fileFilter: (req, file, cb) => {
     // Allow common image formats
@@ -38,10 +38,10 @@ router.post(
     // Handle multer errors
     if (err instanceof multer.MulterError) {
       if (err.code === 'LIMIT_FILE_SIZE') {
-        return res.status(400).json({ 
-          error: 'File too large. Maximum file size is 300MB per file. Please compress your image or use a smaller file.',
+        return res.status(400).json({
+          error: 'File too large. Maximum file size is 1000MB per file. Please compress your image or use a smaller file.',
           code: 'FILE_TOO_LARGE',
-          maxFileSize: '300MB',
+          maxFileSize: '1000MB',
           suggestion: 'Try compressing your image using online tools or reducing the image resolution.'
         });
       }
