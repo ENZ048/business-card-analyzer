@@ -447,10 +447,20 @@ const BusinessCardApp = () => {
         setProcessingStage('');
       }, 1000);
 
-      // Show success toast
-      toast.success(`🎉 Bulk processing completed! Successfully processed ${contactsWithMode.length} business card(s).`, {
+      // Show success toast with merge notification if applicable
+      const uploadedCount = bulkImages.length;
+      const processedCount = contactsWithMode.length;
+
+      let successMessage = `🎉 Bulk processing completed! Successfully processed ${processedCount} business card(s).`;
+
+      if (processedCount < uploadedCount) {
+        const mergedCount = uploadedCount - processedCount;
+        successMessage = `🎉 Bulk processing completed! Successfully processed ${processedCount} business card(s). ℹ️ We merged ${mergedCount} duplicate or front/back card(s) to avoid duplicates.`;
+      }
+
+      toast.success(successMessage, {
         position: "top-right",
-        autoClose: 3000,
+        autoClose: 5000,
         hideProgressBar: false,
         closeOnClick: true,
         pauseOnHover: true,
