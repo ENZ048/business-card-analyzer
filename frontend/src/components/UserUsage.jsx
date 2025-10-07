@@ -86,33 +86,37 @@ const UserUsage = () => {
         </div>
 
         {/* Usage Overview Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+          {/* Lifetime Scans - Highlighted */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="border border-premium-border rounded-xl p-6"
+            className="border-2 border-premium-orange bg-gradient-to-br from-premium-orange to-orange-600 rounded-xl p-6 shadow-lg"
           >
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-premium-gray text-sm font-medium">Total Cards</p>
-                <p className="text-3xl font-bold text-premium-black">{usageData.totalCards}</p>
+                <p className="text-white text-sm font-medium">Lifetime Scans</p>
+                <p className="text-4xl font-bold text-white">{usageData.totalCards}</p>
+                <p className="text-orange-100 text-xs mt-1">All-time total</p>
               </div>
-              <div className="h-12 w-12 bg-premium-orange-muted rounded-lg flex items-center justify-center">
-                <FileText className="h-6 w-6 text-premium-orange" />
+              <div className="h-14 w-14 bg-white bg-opacity-20 rounded-lg flex items-center justify-center">
+                <TrendingUp className="h-8 w-8 text-white" />
               </div>
             </div>
           </motion.div>
 
+          {/* Current Plan Scans */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1 }}
-            className="border border-premium-border rounded-xl p-6"
+            className="border border-premium-border rounded-xl p-6 bg-white"
           >
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-premium-gray text-sm font-medium">This Month</p>
                 <p className="text-3xl font-bold text-premium-black">{usageData.thisMonth}</p>
+                <p className="text-premium-gray text-xs mt-1">Current plan period</p>
               </div>
               <div className="h-12 w-12 bg-premium-orange-muted rounded-lg flex items-center justify-center">
                 <Calendar className="h-6 w-6 text-premium-orange" />
@@ -120,21 +124,42 @@ const UserUsage = () => {
             </div>
           </motion.div>
 
+          {/* Last Month */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.2 }}
-            className="border border-premium-border rounded-xl p-6"
+            className="border border-premium-border rounded-xl p-6 bg-white"
+          >
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-premium-gray text-sm font-medium">Last Month</p>
+                <p className="text-3xl font-bold text-premium-black">{usageData.lastMonth}</p>
+                <p className="text-premium-gray text-xs mt-1">Previous period</p>
+              </div>
+              <div className="h-12 w-12 bg-blue-100 rounded-lg flex items-center justify-center">
+                <FileText className="h-6 w-6 text-blue-600" />
+              </div>
+            </div>
+          </motion.div>
+
+          {/* Plan Limit */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3 }}
+            className="border border-premium-border rounded-xl p-6 bg-white"
           >
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-premium-gray text-sm font-medium">Plan Limit</p>
                 <p className="text-3xl font-bold text-premium-black">
-                  {usageData.planLimit} <span className="text-lg font-normal">cards</span>
+                  {usageData.planLimit === -1 ? '∞' : usageData.planLimit}
                 </p>
+                <p className="text-premium-gray text-xs mt-1">Monthly allocation</p>
               </div>
-              <div className="h-12 w-12 bg-premium-orange-muted rounded-lg flex items-center justify-center">
-                <BarChart3 className="h-6 w-6 text-premium-orange" />
+              <div className="h-12 w-12 bg-green-100 rounded-lg flex items-center justify-center">
+                <BarChart3 className="h-6 w-6 text-green-600" />
               </div>
             </div>
           </motion.div>

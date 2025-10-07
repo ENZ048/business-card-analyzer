@@ -215,11 +215,36 @@ router.put('/users/:id', async (req, res) => {
     if (lastName) user.lastName = lastName;
     if (role) user.role = role;
     if (isActive !== undefined) user.isActive = isActive;
-    if (currentPlan) {
-      user.currentPlan = currentPlan;
-      user.planStartDate = new Date();
-      user.planEndDate = new Date();
-      user.planEndDate.setFullYear(user.planEndDate.getFullYear() + 1);
+
+    // Handle plan change
+    if (currentPlan !== undefined) {
+      if (currentPlan === '' || currentPlan === null) {
+        // Remove plan
+        user.currentPlan = null;
+        user.planStartDate = null;
+        user.planEndDate = null;
+      } else {
+        // Assign new plan
+        const plan = await Plan.findById(currentPlan);
+        if (!plan) {
+          return res.status(400).json({
+            error: 'Invalid plan selected'
+          });
+        }
+
+        user.currentPlan = currentPlan;
+        user.planStartDate = new Date();
+
+        // Set plan end date based on plan's validity
+        if (plan.validityMonths === 0) {
+          // No expiration (demo plan)
+          user.planEndDate = null;
+        } else {
+          const endDate = new Date();
+          endDate.setMonth(endDate.getMonth() + plan.validityMonths);
+          user.planEndDate = endDate;
+        }
+      }
     }
 
     await user.save();
@@ -246,9 +271,9 @@ router.put('/users/:id', async (req, res) => {
 });
 
 // @route   DELETE /api/admin/users/:id
-// @desc    Delete user (soft delete)
-// @access  Super Admin
-router.delete('/users/:id', superAdminMiddleware, async (req, res) => {
+// @desc    Delete user (hard delete - permanently removes from database)
+// @access  Admin
+router.delete('/users/:id', async (req, res) => {
   try {
     const user = await User.findById(req.params.id);
     if (!user) {
@@ -257,13 +282,22 @@ router.delete('/users/:id', superAdminMiddleware, async (req, res) => {
       });
     }
 
-    // Soft delete - deactivate user
-    user.isActive = false;
-    await user.save();
+    // Prevent deleting super admins (only super admins can delete super admins)
+    if (user.role === 'super_admin' && req.user.role !== 'super_admin') {
+      return res.status(403).json({
+        error: 'Only super admins can delete super admin accounts'
+      });
+    }
+
+    // Delete associated usage records
+    await Usage.deleteMany({ user: user._id });
+
+    // Hard delete - permanently remove from database
+    await User.findByIdAndDelete(req.params.id);
 
     res.json({
       success: true,
-      message: 'User deactivated successfully'
+      message: 'User deleted permanently'
     });
   } catch (error) {
     console.error('Delete user error:', error);
@@ -465,6 +499,191 @@ router.post('/users/:id/reset-usage', superAdminMiddleware, async (req, res) => 
     console.error('Reset usage error:', error);
     res.status(500).json({
       error: 'Server error while resetting usage'
+    });
+  }
+});
+
+// @route   GET /api/admin/demo-users
+// @desc    Get all demo users
+// @access  Admin
+router.get('/demo-users', async (req, res) => {
+  try {
+    const demoUsers = await User.find({ isDemo: true })
+      .sort({ createdAt: -1 })
+      .select('-password');
+
+    res.json({
+      success: true,
+      demoUsers
+    });
+  } catch (error) {
+    console.error('Get demo users error:', error);
+    res.status(500).json({
+      error: 'Server error while fetching demo users'
+    });
+  }
+});
+
+// @route   POST /api/admin/demo-users
+// @desc    Create a new demo user with demo plan (5 card scans, no time limit)
+// @access  Admin
+router.post('/demo-users', async (req, res) => {
+  try {
+    const { email, password, firstName, lastName, companyName, phoneNumber } = req.body;
+
+    // Check if user already exists
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+      return res.status(400).json({
+        error: 'Email already exists'
+      });
+    }
+
+    // Find the demo plan
+    const demoPlan = await Plan.findOne({ name: 'demo' });
+    if (!demoPlan) {
+      return res.status(500).json({
+        error: 'Demo plan not found. Please run createDemoPlan.js script first.'
+      });
+    }
+
+    // Create demo user with demo plan (5 card scans, no time limit)
+    // companyName and phoneNumber are optional
+    const demoUser = new User({
+      email,
+      password,
+      firstName,
+      lastName,
+      companyName: companyName || 'Demo Company',
+      phoneNumber: phoneNumber || '000-000-0000',
+      isDemo: true,
+      demoCardScans: 5,
+      currentPlan: demoPlan._id,
+      planStartDate: new Date(),
+      planEndDate: null, // No expiration for demo plan
+      role: 'user',
+      isActive: true
+    });
+
+    await demoUser.save();
+
+    res.status(201).json({
+      success: true,
+      message: 'Demo user created successfully with 5 card scans (no time limit)',
+      demoUser: {
+        id: demoUser._id,
+        email: demoUser.email,
+        firstName: demoUser.firstName,
+        lastName: demoUser.lastName,
+        companyName: demoUser.companyName,
+        phoneNumber: demoUser.phoneNumber,
+        isDemo: demoUser.isDemo,
+        demoCardScans: demoUser.demoCardScans,
+        currentPlan: demoPlan.displayName
+      }
+    });
+  } catch (error) {
+    console.error('Create demo user error:', error);
+    res.status(500).json({
+      error: 'Server error while creating demo user'
+    });
+  }
+});
+
+// @route   PUT /api/admin/demo-users/:id
+// @desc    Update demo user details
+// @access  Admin
+router.put('/demo-users/:id', async (req, res) => {
+  try {
+    const { firstName, lastName, email, companyName, phoneNumber, demoCardScans, isActive } = req.body;
+
+    const user = await User.findById(req.params.id);
+    if (!user) {
+      return res.status(404).json({
+        error: 'Demo user not found'
+      });
+    }
+
+    if (!user.isDemo) {
+      return res.status(400).json({
+        error: 'User is not a demo user'
+      });
+    }
+
+    // Check if email is being changed and if it's already taken
+    if (email && email !== user.email) {
+      const existingUser = await User.findOne({ email });
+      if (existingUser) {
+        return res.status(400).json({
+          error: 'Email already exists'
+        });
+      }
+      user.email = email;
+    }
+
+    if (firstName) user.firstName = firstName;
+    if (lastName) user.lastName = lastName;
+    if (companyName) user.companyName = companyName;
+    if (phoneNumber) user.phoneNumber = phoneNumber;
+    if (demoCardScans !== undefined) user.demoCardScans = demoCardScans;
+    if (isActive !== undefined) user.isActive = isActive;
+
+    await user.save();
+
+    res.json({
+      success: true,
+      message: 'Demo user updated successfully',
+      demoUser: {
+        id: user._id,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        email: user.email,
+        companyName: user.companyName,
+        phoneNumber: user.phoneNumber,
+        demoCardScans: user.demoCardScans,
+        isActive: user.isActive
+      }
+    });
+  } catch (error) {
+    console.error('Update demo user error:', error);
+    res.status(500).json({
+      error: 'Server error while updating demo user'
+    });
+  }
+});
+
+// @route   DELETE /api/admin/demo-users/:id
+// @desc    Delete demo user (hard delete - permanently removes from database)
+// @access  Admin
+router.delete('/demo-users/:id', async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id);
+    if (!user) {
+      return res.status(404).json({
+        error: 'Demo user not found'
+      });
+    }
+
+    if (!user.isDemo) {
+      return res.status(400).json({
+        error: 'User is not a demo user'
+      });
+    }
+
+    // Delete associated usage records
+    await Usage.deleteMany({ user: user._id });
+
+    // Hard delete - permanently remove from database
+    await User.findByIdAndDelete(req.params.id);
+
+    res.json({
+      success: true,
+      message: 'Demo user deleted permanently'
+    });
+  } catch (error) {
+    console.error('Delete demo user error:', error);
+    res.status(500).json({
+      error: 'Server error while deleting demo user'
     });
   }
 });

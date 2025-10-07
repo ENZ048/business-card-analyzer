@@ -191,6 +191,27 @@ export const apiService = {
     return response.data;
   },
 
+  // Demo Users Management
+  getDemoUsers: async () => {
+    const response = await api.get('/api/admin/demo-users');
+    return response.data;
+  },
+
+  createDemoUser: async (userData) => {
+    const response = await api.post('/api/admin/demo-users', userData);
+    return response.data;
+  },
+
+  updateDemoUser: async (userId, userData) => {
+    const response = await api.put(`/api/admin/demo-users/${userId}`, userData);
+    return response.data;
+  },
+
+  deleteDemoUser: async (userId) => {
+    const response = await api.delete(`/api/admin/demo-users/${userId}`);
+    return response.data;
+  },
+
   // OCR Processing
   uploadSingleCard: async (userId, frontImage, backImage = null, onUploadProgress = null) => {
     const formData = new FormData();

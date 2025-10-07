@@ -22,6 +22,7 @@ import {
   LogOut,
   Menu,
   Info,
+  CreditCard,
 } from "lucide-react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
@@ -98,6 +99,15 @@ const BusinessCardApp = () => {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
+  // Usage tracking state
+  const [usageData, setUsageData] = useState({
+    scansRemaining: 0,
+    planLimit: 0,
+    scansUsed: 0,
+    isDemo: false,
+    demoCardScans: 0
+  });
+
   // Memoized ObjectURLs to prevent recreation on every render
   const frontImageUrl = useMemo(() => {
     if (frontImage) {
@@ -159,6 +169,33 @@ const BusinessCardApp = () => {
     };
   }, [bulkImages]);
 
+  // Fetch usage data on mount and after processing
+  useEffect(() => {
+    fetchUsageData();
+  }, []);
+
+  const fetchUsageData = async () => {
+    try {
+      const response = await apiService.getUserUsage();
+      if (response.success) {
+        const data = response.data;
+        // Check if user is demo
+        const isDemo = user?.isDemo || false;
+        const demoScans = user?.demoCardScans || 0;
+
+        setUsageData({
+          scansRemaining: isDemo ? demoScans : (data.planLimit - data.thisMonth),
+          planLimit: data.planLimit,
+          scansUsed: data.thisMonth,
+          isDemo: isDemo,
+          demoCardScans: demoScans
+        });
+      }
+    } catch (error) {
+      console.error('Failed to fetch usage data:', error);
+    }
+  };
+
   // Menu items
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: FileText },
@@ -192,6 +229,16 @@ const BusinessCardApp = () => {
   // File handling functions - heavily optimized for large batches
   const handleFileSelect = (files, isBulk = false) => {
     if (isBulk) {
+      // Check if user has enough scans remaining
+      if (files.length > usageData.scansRemaining) {
+        toast.error(
+          `You only have ${usageData.scansRemaining} scan(s) remaining. ` +
+          `You selected ${files.length} images. ` +
+          `Please ${usageData.isDemo ? 'upgrade to a paid plan' : 'upgrade your plan'} or select fewer images.`
+        );
+        return;
+      }
+
       // Immediately return to unblock UI, process files asynchronously
       setTimeout(() => {
         const validFiles = [];
@@ -211,6 +258,15 @@ const BusinessCardApp = () => {
           toast.error(`${invalidCount} invalid file(s) removed. Only image files are allowed.`);
         }
 
+        // Final check after filtering invalid files
+        if (validFiles.length > usageData.scansRemaining) {
+          toast.error(
+            `After removing invalid files, you still have ${validFiles.length} images. ` +
+            `You only have ${usageData.scansRemaining} scan(s) remaining.`
+          );
+          return;
+        }
+
         // Update state
         setBulkImages(validFiles);
 
@@ -220,6 +276,16 @@ const BusinessCardApp = () => {
         }
       }, 0); // Execute in next event loop tick
     } else {
+      // Single mode - check if user has at least 1 scan remaining
+      const scanCount = files.length; // front + back (if provided)
+      if (scanCount > usageData.scansRemaining) {
+        toast.error(
+          `You only have ${usageData.scansRemaining} scan(s) remaining. ` +
+          `Please ${usageData.isDemo ? 'upgrade to a paid plan' : 'upgrade your plan'}.`
+        );
+        return;
+      }
+
       if (files.length > 0) {
         if (!files[0].type.startsWith('image/')) {
           toast.error('Please select an image file for the front of the card');
@@ -343,13 +409,16 @@ const BusinessCardApp = () => {
         pauseOnHover: true,
         draggable: true,
       });
-      
+
+      // Refresh usage data after successful processing
+      fetchUsageData();
+
       // Auto-scroll to processed contacts section in single mode
       if (mode === "single") {
         setTimeout(() => {
-          processedContactsRef.current?.scrollIntoView({ 
-            behavior: 'smooth', 
-            block: 'start' 
+          processedContactsRef.current?.scrollIntoView({
+            behavior: 'smooth',
+            block: 'start'
           });
         }, 100);
       }
@@ -456,13 +525,16 @@ const BusinessCardApp = () => {
         pauseOnHover: true,
         draggable: true,
       });
-      
+
+      // Refresh usage data after successful processing
+      fetchUsageData();
+
       // Auto-scroll to processed contacts section in bulk mode
       if (mode === "bulk") {
         setTimeout(() => {
-          bulkProcessedContactsRef.current?.scrollIntoView({ 
-            behavior: 'smooth', 
-            block: 'start' 
+          bulkProcessedContactsRef.current?.scrollIntoView({
+            behavior: 'smooth',
+            block: 'start'
           });
         }, 100);
       }
@@ -721,9 +793,17 @@ const BusinessCardApp = () => {
           >
             {/* Single Card Upload */}
             <div className="bg-premium-white border border-premium-border rounded-2xl p-8 shadow-lg">
-              <h2 className="text-2xl font-semibold text-premium-black mb-6">
-                Upload Business Card
-              </h2>
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-2xl font-semibold text-premium-black">
+                  Upload Business Card
+                </h2>
+                <div className="flex items-center gap-2 px-4 py-2 bg-premium-orange-muted rounded-lg">
+                  <CreditCard className="w-5 h-5 text-premium-orange" />
+                  <span className="text-sm font-medium text-premium-black">
+                    {usageData.scansRemaining} scan{usageData.scansRemaining !== 1 ? 's' : ''} remaining
+                  </span>
+                </div>
+              </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
                 {/* Front Image */}
@@ -1131,9 +1211,17 @@ const BusinessCardApp = () => {
           >
             {/* Bulk Upload */}
             <div className="bg-premium-white border border-premium-border rounded-2xl p-8 shadow-lg">
-              <h2 className="text-2xl font-semibold text-premium-black mb-6">
-                Bulk Upload
-              </h2>
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-2xl font-semibold text-premium-black">
+                  Bulk Upload
+                </h2>
+                <div className="flex items-center gap-2 px-4 py-2 bg-premium-orange-muted rounded-lg">
+                  <CreditCard className="w-5 h-5 text-premium-orange" />
+                  <span className="text-sm font-medium text-premium-black">
+                    {usageData.scansRemaining} scan{usageData.scansRemaining !== 1 ? 's' : ''} remaining
+                  </span>
+                </div>
+              </div>
 
               {/* Creative Instruction */}
               <div className="mb-6 p-4 bg-premium-beige-light border border-premium-border rounded-xl">

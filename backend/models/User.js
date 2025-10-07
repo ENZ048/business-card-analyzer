@@ -56,6 +56,14 @@ const userSchema = new mongoose.Schema({
     enum: ['user', 'admin', 'super_admin'],
     default: 'user'
   },
+  isDemo: {
+    type: Boolean,
+    default: false
+  },
+  demoCardScans: {
+    type: Number,
+    default: 0
+  },
   lastLogin: {
     type: Date,
     default: Date.now

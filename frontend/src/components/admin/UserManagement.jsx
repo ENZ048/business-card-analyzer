@@ -34,10 +34,21 @@ const UserManagement = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedUser, setSelectedUser] = useState(null);
   const [showUserModal, setShowUserModal] = useState(false);
+  const [plans, setPlans] = useState([]);
 
   useEffect(() => {
     fetchUsers();
+    fetchPlans();
   }, [currentPage, filters]);
+
+  const fetchPlans = async () => {
+    try {
+      const response = await apiService.getAdminPlans();
+      setPlans(response.plans || []);
+    } catch (err) {
+      console.error('Failed to fetch plans:', err);
+    }
+  };
 
   const fetchUsers = async () => {
     try {
@@ -80,10 +91,10 @@ const UserManagement = () => {
   };
 
   const handleUserDelete = async (userId) => {
-    if (window.confirm('Are you sure you want to deactivate this user?')) {
+    if (window.confirm('Are you sure you want to permanently delete this user? This action cannot be undone!')) {
       try {
         await apiService.deleteAdminUser(userId);
-        toast.success('User deactivated successfully');
+        toast.success('User deleted permanently');
         fetchUsers();
       } catch (err) {
         const errorMessage = err.toastMessage || err.response?.data?.error || 'Failed to delete user';
@@ -391,6 +402,7 @@ const UserManagement = () => {
       {showUserModal && selectedUser && (
         <UserDetailsModal
           user={selectedUser}
+          plans={plans}
           onClose={() => setShowUserModal(false)}
           onSave={handleUserEdit}
         />
@@ -400,7 +412,7 @@ const UserManagement = () => {
 };
 
 // User Details Modal Component
-const UserDetailsModal = ({ user, onClose, onSave }) => {
+const UserDetailsModal = ({ user, plans, onClose, onSave }) => {
   const [formData, setFormData] = useState({
     firstName: user.user.firstName,
     lastName: user.user.lastName,
@@ -408,7 +420,8 @@ const UserDetailsModal = ({ user, onClose, onSave }) => {
     companyName: user.user.companyName,
     phoneNumber: user.user.phoneNumber,
     role: user.user.role,
-    isActive: user.user.isActive
+    isActive: user.user.isActive,
+    currentPlan: user.user.currentPlan?._id || ''
   });
 
   const handleSubmit = (e) => {
@@ -490,19 +503,39 @@ const UserDetailsModal = ({ user, onClose, onSave }) => {
               />
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">
-                Role
-              </label>
-              <select
-                value={formData.role}
-                onChange={(e) => setFormData(prev => ({ ...prev, role: e.target.value }))}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              >
-                <option value="user">User</option>
-                <option value="admin">Admin</option>
-                <option value="super_admin">Super Admin</option>
-              </select>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">
+                  Role
+                </label>
+                <select
+                  value={formData.role}
+                  onChange={(e) => setFormData(prev => ({ ...prev, role: e.target.value }))}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                >
+                  <option value="user">User</option>
+                  <option value="admin">Admin</option>
+                  <option value="super_admin">Super Admin</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">
+                  Plan
+                </label>
+                <select
+                  value={formData.currentPlan}
+                  onChange={(e) => setFormData(prev => ({ ...prev, currentPlan: e.target.value }))}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                >
+                  <option value="">No Plan</option>
+                  {plans.map(plan => (
+                    <option key={plan._id} value={plan._id}>
+                      {plan.displayName} ({plan.cardScansLimit === -1 ? 'Unlimited' : plan.cardScansLimit} scans)
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
 
             <div>

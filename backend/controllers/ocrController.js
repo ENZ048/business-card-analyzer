@@ -1011,6 +1011,23 @@ function validateAndScoreCard(card) {
 async function checkUserUsage(userId, scanCount = 1) {
   try {
     const user = await User.findById(userId).populate('currentPlan');
+
+    // Handle demo users separately
+    if (user && user.isDemo) {
+      // Demo users use demoCardScans instead of plan-based limits
+      if (user.demoCardScans <= 0) {
+        throw new Error('You have used all your demo card scans. Please upgrade to a paid plan to continue.');
+      }
+
+      if (scanCount > user.demoCardScans) {
+        throw new Error(`You only have ${user.demoCardScans} demo scan(s) remaining. You are trying to scan ${scanCount} cards.`);
+      }
+
+      // Return user with null currentUsage (demo users don't use Usage model)
+      return { user, currentUsage: null, isDemo: true };
+    }
+
+    // Regular users (non-demo)
     if (!user || !user.currentPlan) {
       throw new Error('No active plan found');
     }
@@ -1023,8 +1040,8 @@ async function checkUserUsage(userId, scanCount = 1) {
 
     // Get current usage
     const currentUsage = await Usage.getOrCreateUsage(
-      user._id, 
-      user.currentPlan._id, 
+      user._id,
+      user.currentPlan._id,
       user.currentPlan.cardScansLimit
     );
 
@@ -1037,7 +1054,7 @@ async function checkUserUsage(userId, scanCount = 1) {
       throw new Error(`You can only perform ${currentUsage.getRemainingScans()} more scans this month. Please upgrade your plan.`);
     }
 
-    return { user, currentUsage };
+    return { user, currentUsage, isDemo: false };
   } catch (error) {
     throw error;
   }
@@ -1051,13 +1068,14 @@ async function processBusinessCard(req, res) {
     if (!userId) return res.status(400).json({ error: "userId is required" });
 
     // Check user usage limits - we'll determine the actual scan count after processing
-    let user, currentUsage;
+    let user, currentUsage, isDemo;
     try {
       const usageCheck = await checkUserUsage(userId, 1); // Initial check with 1
       user = usageCheck.user;
       currentUsage = usageCheck.currentUsage;
+      isDemo = usageCheck.isDemo;
     } catch (usageError) {
-      return res.status(403).json({ 
+      return res.status(403).json({
         error: usageError.message,
         code: 'USAGE_LIMIT_EXCEEDED'
       });
@@ -1147,15 +1165,29 @@ async function processBusinessCard(req, res) {
     }
     
     try {
-      // Check if user has enough remaining scans for the actual number of images/cards
-      if ((currentUsage.cardScansUsed + actualScanCount) > currentUsage.cardScansLimit && !user.currentPlan.isUnlimited()) {
-        return res.status(403).json({ 
-          error: `You can only perform ${currentUsage.getRemainingScans()} more scans this month. Please upgrade your plan.`,
-          code: 'USAGE_LIMIT_EXCEEDED'
-        });
+      if (isDemo) {
+        // Handle demo users - decrement demoCardScans
+        if (actualScanCount > user.demoCardScans) {
+          return res.status(403).json({
+            error: `You only have ${user.demoCardScans} demo scan(s) remaining. You tried to scan ${actualScanCount} cards.`,
+            code: 'USAGE_LIMIT_EXCEEDED'
+          });
+        }
+
+        // Decrement demo card scans
+        user.demoCardScans -= actualScanCount;
+        await user.save();
+      } else {
+        // Handle regular users - use Usage model
+        if ((currentUsage.cardScansUsed + actualScanCount) > currentUsage.cardScansLimit && !user.currentPlan.isUnlimited()) {
+          return res.status(403).json({
+            error: `You can only perform ${currentUsage.getRemainingScans()} more scans this month. Please upgrade your plan.`,
+            code: 'USAGE_LIMIT_EXCEEDED'
+          });
+        }
+
+        await currentUsage.incrementUsage(actualScanCount, mode);
       }
-      
-      await currentUsage.incrementUsage(actualScanCount, mode);
     } catch (usageError) {
       console.error('Error updating usage:', usageError);
       // Don't fail the request if usage update fails

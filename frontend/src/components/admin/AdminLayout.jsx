@@ -1,21 +1,23 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { 
-  LayoutDashboard, 
-  Users, 
-  CreditCard, 
+import {
+  LayoutDashboard,
+  Users,
+  CreditCard,
   BarChart3,
   Menu,
   X,
   LogOut,
   Settings,
-  Shield
+  Shield,
+  UserCog
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import AdminDashboard from './AdminDashboard';
 import UserManagement from './UserManagement';
 import PlanManagement from './PlanManagement';
 import UsageAnalytics from './UsageAnalytics';
+import DemoUserManagement from './DemoUserManagement';
 
 const AdminLayout = () => {
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -25,6 +27,7 @@ const AdminLayout = () => {
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'users', label: 'User Management', icon: Users },
+    { id: 'demo-users', label: 'Demo Users', icon: UserCog },
     { id: 'plans', label: 'Plan Management', icon: CreditCard },
     { id: 'analytics', label: 'Usage Analytics', icon: BarChart3 },
   ];
@@ -35,6 +38,8 @@ const AdminLayout = () => {
         return <AdminDashboard />;
       case 'users':
         return <UserManagement />;
+      case 'demo-users':
+        return <DemoUserManagement />;
       case 'plans':
         return <PlanManagement />;
       case 'analytics':
