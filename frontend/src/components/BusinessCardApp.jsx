@@ -179,16 +179,16 @@ const BusinessCardApp = () => {
       const response = await apiService.getUserUsage();
       if (response.success) {
         const data = response.data;
-        // Check if user is demo
-        const isDemo = user?.isDemo || false;
-        const demoScans = user?.demoCardScans || 0;
+        // Check if user is demo - use session scans
+        const isDemo = data.isDemo || user?.isDemo || false;
+        const sessionScans = data.sessionScans || user?.sessionScans || 0;
 
         setUsageData({
-          scansRemaining: isDemo ? demoScans : (data.planLimit - data.thisMonth),
+          scansRemaining: isDemo ? sessionScans : (data.planLimit - data.thisMonth),
           planLimit: data.planLimit,
           scansUsed: data.thisMonth,
           isDemo: isDemo,
-          demoCardScans: demoScans
+          sessionScans: sessionScans
         });
       }
     } catch (error) {
@@ -196,11 +196,11 @@ const BusinessCardApp = () => {
     }
   };
 
-  // Menu items
+  // Menu items - hide change password for demo users
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: FileText },
     { id: 'usage', label: 'Usage Analytics', icon: BarChart3 },
-    { id: 'settings', label: 'Change Password', icon: Settings },
+    ...(usageData.isDemo ? [] : [{ id: 'settings', label: 'Change Password', icon: Settings }]),
   ];
 
   // Render content based on active tab
@@ -231,10 +231,14 @@ const BusinessCardApp = () => {
     if (isBulk) {
       // Check if user has enough scans remaining
       if (files.length > usageData.scansRemaining) {
+        const upgradeMsg = usageData.isDemo
+          ? 'upgrade to a paid plan for unlimited scans'
+          : 'upgrade your plan';
+
         toast.error(
           `You only have ${usageData.scansRemaining} scan(s) remaining. ` +
           `You selected ${files.length} images. ` +
-          `Please ${usageData.isDemo ? 'upgrade to a paid plan' : 'upgrade your plan'} or select fewer images.`
+          `Please ${upgradeMsg} or select fewer images.`
         );
         return;
       }
@@ -410,8 +414,26 @@ const BusinessCardApp = () => {
         draggable: true,
       });
 
-      // Refresh usage data after successful processing
-      fetchUsageData();
+      // Update usage data from response (for demo users, update session scans)
+      if (result.usage) {
+        if (result.usage.isDemo) {
+          // Update local state
+          setUsageData(prev => ({
+            ...prev,
+            scansRemaining: result.usage.sessionScans,
+            sessionScans: result.usage.sessionScans
+          }));
+          
+          // Update token in localStorage if a new token was provided
+          if (result.token) {
+            localStorage.setItem('token', result.token);
+          }
+        } else {
+          fetchUsageData();
+        }
+      } else {
+        fetchUsageData();
+      }
 
       // Auto-scroll to processed contacts section in single mode
       if (mode === "single") {
@@ -526,8 +548,26 @@ const BusinessCardApp = () => {
         draggable: true,
       });
 
-      // Refresh usage data after successful processing
-      fetchUsageData();
+      // Update usage data from response (for demo users, update session scans)
+      if (result.usage) {
+        if (result.usage.isDemo) {
+          // Update local state
+          setUsageData(prev => ({
+            ...prev,
+            scansRemaining: result.usage.sessionScans,
+            sessionScans: result.usage.sessionScans
+          }));
+          
+          // Update token in localStorage if a new token was provided
+          if (result.token) {
+            localStorage.setItem('token', result.token);
+          }
+        } else {
+          fetchUsageData();
+        }
+      } else {
+        fetchUsageData();
+      }
 
       // Auto-scroll to processed contacts section in bulk mode
       if (mode === "bulk") {
@@ -801,6 +841,7 @@ const BusinessCardApp = () => {
                   <CreditCard className="w-5 h-5 text-premium-orange" />
                   <span className="text-sm font-medium text-premium-black">
                     {usageData.scansRemaining} scan{usageData.scansRemaining !== 1 ? 's' : ''} remaining
+                    {usageData.isDemo && <span className="text-xs text-premium-gray ml-1">(demo)</span>}
                   </span>
                 </div>
               </div>
@@ -1219,6 +1260,7 @@ const BusinessCardApp = () => {
                   <CreditCard className="w-5 h-5 text-premium-orange" />
                   <span className="text-sm font-medium text-premium-black">
                     {usageData.scansRemaining} scan{usageData.scansRemaining !== 1 ? 's' : ''} remaining
+                    {usageData.isDemo && <span className="text-xs text-premium-gray ml-1">(demo)</span>}
                   </span>
                 </div>
               </div>

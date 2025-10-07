@@ -8,6 +8,8 @@ const OpenAI = require("openai");
 const { v4: uuidv4 } = require("uuid");
 const User = require("../models/User");
 const Usage = require("../models/Usage");
+const DemoSession = require("../models/DemoSession");
+const ScanActivity = require("../models/ScanActivity");
 const llmLogger = require("../utils/llmLogger");
 
 const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
@@ -37,6 +39,10 @@ function ensureArray(value) {
   if (!value) return [];
   return Array.isArray(value) ? value : [value];
 }
+
+// Demo helpers
+const DEMO_USER_EMAIL = (process.env.DEMO_USER_EMAIL || 'bd@troikatech.net').toLowerCase();
+const isDemoUser = (user) => !!(user && (user.isDemo || (user.email && user.email.toLowerCase() === DEMO_USER_EMAIL)));
 
 // ---------- Built-in Card Merging Function ----------
 function mergeParsedCards(cards) {
@@ -1007,24 +1013,49 @@ function validateAndScoreCard(card) {
   };
 }
 
+// ---------- Record Scan Activity Function ----------
+async function recordScanActivity(userId, sessionId, scanCount, scanType, filesProcessed, sessionScansRemaining, req) {
+  try {
+    const scanActivity = new ScanActivity({
+      userId,
+      sessionId,
+      scanCount,
+      scanType,
+      filesProcessed,
+      sessionScansRemaining,
+      ipAddress: req.ip || req.connection.remoteAddress,
+      userAgent: req.get('User-Agent')
+    });
+    
+    await scanActivity.save();
+    console.log(`✅ Recorded scan activity: ${scanCount} scans for user ${userId}, session ${sessionId}`);
+  } catch (error) {
+    console.error('❌ Error recording scan activity:', error);
+    // Don't throw error - this shouldn't break the main flow
+  }
+}
+
 // ---------- Usage Check Function ----------
-async function checkUserUsage(userId, scanCount = 1) {
+async function checkUserUsage(userId, scanCount = 1, sessionScans = null) {
   try {
     const user = await User.findById(userId).populate('currentPlan');
 
-    // Handle demo users separately
-    if (user && user.isDemo) {
-      // Demo users use demoCardScans instead of plan-based limits
-      if (user.demoCardScans <= 0) {
-        throw new Error('You have used all your demo card scans. Please upgrade to a paid plan to continue.');
+    // Handle demo users separately - use session-based scans from database
+    if (user && isDemoUser(user)) {
+      // Get session from database
+      const demoSession = await DemoSession.getOrCreateSession(userId);
+      const dbSessionScans = demoSession.sessionScans;
+
+      if (dbSessionScans <= 0) {
+        throw new Error('You have used all your demo scans. Please upgrade to a paid plan for unlimited scans.');
       }
 
-      if (scanCount > user.demoCardScans) {
-        throw new Error(`You only have ${user.demoCardScans} demo scan(s) remaining. You are trying to scan ${scanCount} cards.`);
+      if (scanCount > dbSessionScans) {
+        throw new Error(`You only have ${dbSessionScans} demo scan(s) remaining. You are trying to scan ${scanCount} cards.`);
       }
 
       // Return user with null currentUsage (demo users don't use Usage model)
-      return { user, currentUsage: null, isDemo: true };
+      return { user, currentUsage: null, isDemo: true, sessionScans: dbSessionScans, demoSession };
     }
 
     // Regular users (non-demo)
@@ -1068,12 +1099,14 @@ async function processBusinessCard(req, res) {
     if (!userId) return res.status(400).json({ error: "userId is required" });
 
     // Check user usage limits - we'll determine the actual scan count after processing
-    let user, currentUsage, isDemo;
+    let user, currentUsage, isDemo, sessionScans, demoSession;
     try {
       const usageCheck = await checkUserUsage(userId, 1); // Initial check with 1
       user = usageCheck.user;
       currentUsage = usageCheck.currentUsage;
       isDemo = usageCheck.isDemo;
+      sessionScans = usageCheck.sessionScans;
+      demoSession = usageCheck.demoSession; // For demo users
     } catch (usageError) {
       return res.status(403).json({
         error: usageError.message,
@@ -1166,17 +1199,28 @@ async function processBusinessCard(req, res) {
     
     try {
       if (isDemo) {
-        // Handle demo users - decrement demoCardScans
-        if (actualScanCount > user.demoCardScans) {
+        // Handle demo users - validate session scans
+        if (actualScanCount > sessionScans) {
           return res.status(403).json({
-            error: `You only have ${user.demoCardScans} demo scan(s) remaining. You tried to scan ${actualScanCount} cards.`,
+            error: `You only have ${sessionScans} demo scan(s) remaining. You tried to scan ${actualScanCount} cards.`,
             code: 'USAGE_LIMIT_EXCEEDED'
           });
         }
 
-        // Decrement demo card scans
-        user.demoCardScans -= actualScanCount;
-        await user.save();
+        // Decrement session scans in database
+        await demoSession.decrementScans(actualScanCount);
+        sessionScans = demoSession.sessionScans;
+        
+        // Record scan activity for demo users
+        await recordScanActivity(
+          userId, 
+          demoSession._id.toString(), 
+          actualScanCount, 
+          mode, 
+          actualScanCount, 
+          sessionScans, 
+          req
+        );
       } else {
         // Handle regular users - use Usage model
         if ((currentUsage.cardScansUsed + actualScanCount) > currentUsage.cardScansLimit && !user.currentPlan.isUnlimited()) {
@@ -1194,24 +1238,47 @@ async function processBusinessCard(req, res) {
     }
 
     // COMPLETE
-    
-    return res.json({ 
-      success: true, 
-      message: "Processing completed successfully", 
+
+    const response = {
+      success: true,
+      message: "Processing completed successfully",
       mode,
       data: validatedCards,
       summary: {
         totalProcessed: pairedCards.length,
         validCards: validatedCards.length,
         averageConfidence: Math.round(validatedCards.reduce((sum, card) => sum + card.confidence, 0) / validatedCards.length) || 0
-      },
-      usage: {
+      }
+    };
+
+    // Add usage info based on user type
+    if (isDemo) {
+      // For demo users, return remaining session scans and generate new JWT
+      const jwt = require('jsonwebtoken');
+      const newToken = jwt.sign(
+        { userId: userId, sessionScans: sessionScans },
+        process.env.JWT_SECRET || 'your-secret-key',
+        { expiresIn: '7d' }
+      );
+      
+      response.usage = {
+        sessionScans: sessionScans,
+        scansThisRequest: actualScanCount,
+        isDemo: true
+      };
+      response.token = newToken; // Return new token with updated session scans
+    } else {
+      // For regular users, return plan-based usage
+      response.usage = {
         cardScansUsed: currentUsage.cardScansUsed,
         cardScansLimit: currentUsage.cardScansLimit,
         remainingScans: currentUsage.getRemainingScans(),
-        scansThisRequest: actualScanCount
-      }
-    });
+        scansThisRequest: actualScanCount,
+        isDemo: false
+      };
+    }
+
+    return res.json(response);
     
   } catch (err) {
     console.error("❌ OCR Error:", err);

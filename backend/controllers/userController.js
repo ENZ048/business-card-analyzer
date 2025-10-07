@@ -2,12 +2,37 @@ const mongoose = require('mongoose');
 const User = require('../models/User');
 const Usage = require('../models/Usage');
 const Plan = require('../models/Plan');
+const DemoSession = require('../models/DemoSession');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const winston = require('winston');
+
+// Create logger
+const logger = winston.createLogger({
+  level: 'info',
+  format: winston.format.combine(
+    winston.format.timestamp(),
+    winston.format.simple()
+  ),
+  transports: [
+    new winston.transports.Console()
+  ]
+});
+
+// Demo user helpers
+const DEMO_USER_EMAIL = (process.env.DEMO_USER_EMAIL || 'bd@troikatech.net').toLowerCase();
+const isDemoUser = (user) => !!(user && (user.isDemo || (user.email && user.email.toLowerCase() === DEMO_USER_EMAIL)));
 
 // Generate JWT token
-const generateToken = (userId) => {
-  return jwt.sign({ userId }, process.env.JWT_SECRET || 'your-secret-key', {
+const generateToken = (userId, sessionScans = null) => {
+  const payload = { userId };
+
+  // For demo users, include session-based scan count in JWT
+  if (sessionScans !== null) {
+    payload.sessionScans = sessionScans;
+  }
+
+  return jwt.sign(payload, process.env.JWT_SECRET || 'your-secret-key', {
     expiresIn: '7d'
   });
 };
@@ -149,8 +174,35 @@ const login = async (req, res) => {
     user.lastLogin = new Date();
     await user.save();
 
-    // Generate token
-    const token = generateToken(user._id);
+    // Generate token - for demo users, reset session scans to 5
+    let token;
+    let sessionScans = null;
+
+    logger.info('========== LOGIN START ==========');
+    logger.info('🔍 LOGIN - User isDemo:', user.isDemo, '| Email:', user.email);
+    logger.info('User._id:', user._id);
+    logger.info('User.isDemo type:', typeof user.isDemo);
+    logger.info('User.isDemo value:', user.isDemo);
+
+    if (isDemoUser(user)) {
+      // Create or reset demo session in database
+      const demoSession = await DemoSession.resetSessionOnLogin(user._id);
+      sessionScans = demoSession.sessionScans;
+      token = generateToken(user._id, sessionScans);
+      logger.info('✅ DEMO USER LOGIN - Created/reset session in DB with sessionScans:', sessionScans);
+      logger.info('Token generated:', token.substring(0, 50) + '...');
+    } else {
+      token = generateToken(user._id);
+      logger.info('✅ REGULAR USER LOGIN - Generated token without sessionScans');
+    }
+
+    logger.info('📦 Response user object:', {
+      id: user._id,
+      email: user.email,
+      isDemo: user.isDemo,
+      sessionScans: sessionScans
+    });
+    logger.info('========== LOGIN END ==========');
 
     res.json({
       success: true,
@@ -163,7 +215,9 @@ const login = async (req, res) => {
         email: user.email,
         companyName: user.companyName,
         phoneNumber: user.phoneNumber,
-        role: user.role
+        role: user.role,
+        isDemo: isDemoUser(user),
+        sessionScans: sessionScans
       }
     });
   } catch (error) {
@@ -186,18 +240,55 @@ const getUserUsage = async (req, res) => {
     const lastMonth = currentMonth === 1 ? 12 : currentMonth - 1;
     const lastMonthYear = currentMonth === 1 ? currentYear - 1 : currentYear;
 
+    // Get user's current plan
+    const user = await User.findById(userId).populate('currentPlan');
+
+    // Handle demo users separately - use session scans from database
+    if (isDemoUser(user)) {
+      // Get session from database
+      const demoSession = await DemoSession.getOrCreateSession(userId);
+      const sessionScans = demoSession.sessionScans;
+
+      logger.info('========== GET USAGE - DEMO USER ==========');
+      logger.info('📊 GET USAGE - Demo User Detected');
+      logger.info('   User ID:', userId);
+      logger.info('   User Email:', user.email);
+      logger.info('   User.isDemo:', user.isDemo);
+      logger.info('   DB sessionScans:', sessionScans);
+      logger.info('   Sending sessionScans:', sessionScans);
+      logger.info('========== GET USAGE END ==========');
+
+      return res.json({
+        success: true,
+        data: {
+          totalCards: 0,
+          thisMonth: 0,
+          lastMonth: 0,
+          planLimit: 5,
+          planType: 'Demo',
+          planId: user.currentPlan?._id || null,
+          planEndDate: null,
+          daysRemaining: null,
+          isPlanExpired: false,
+          recentActivity: [],
+          isDemo: true,
+          sessionScans: sessionScans
+        }
+      });
+    }
+
     // Get current usage
-    const currentUsage = await Usage.findOne({ 
-      user: new mongoose.Types.ObjectId(userId), 
-      year: currentYear, 
-      month: currentMonth 
+    const currentUsage = await Usage.findOne({
+      user: new mongoose.Types.ObjectId(userId),
+      year: currentYear,
+      month: currentMonth
     });
 
     // Get last month usage
-    const lastMonthUsage = await Usage.findOne({ 
-      user: new mongoose.Types.ObjectId(userId), 
-      year: lastMonthYear, 
-      month: lastMonth 
+    const lastMonthUsage = await Usage.findOne({
+      user: new mongoose.Types.ObjectId(userId),
+      year: lastMonthYear,
+      month: lastMonth
     });
 
     // Get total usage across all time
@@ -206,8 +297,6 @@ const getUserUsage = async (req, res) => {
       { $group: { _id: null, totalCards: { $sum: '$cardScansUsed' } } }
     ]);
 
-    // Get user's current plan
-    const user = await User.findById(userId).populate('currentPlan');
     const plan = user.currentPlan;
 
     // Get recent activity from all usage records
@@ -304,6 +393,23 @@ const changePassword = async (req, res) => {
     const userId = req.user.id;
     const { currentPassword, newPassword } = req.body;
 
+    // Check if user is demo user
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    // Block password change for demo users
+    if (user.isDemo) {
+      return res.status(403).json({
+        success: false,
+        message: 'Password change is not allowed for demo accounts'
+      });
+    }
+
     // Validate input
     if (!currentPassword || !newPassword) {
       return res.status(400).json({
@@ -316,15 +422,6 @@ const changePassword = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: 'New password must be at least 8 characters long'
-      });
-    }
-
-    // Get user
-    const user = await User.findById(userId);
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: 'User not found'
       });
     }
 

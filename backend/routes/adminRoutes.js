@@ -503,18 +503,37 @@ router.post('/users/:id/reset-usage', superAdminMiddleware, async (req, res) => 
   }
 });
 
+// Demo user management routes
+const DemoSession = require('../models/DemoSession');
+const ScanActivity = require('../models/ScanActivity');
+
 // @route   GET /api/admin/demo-users
-// @desc    Get all demo users
+// @desc    Get demo users with session information
 // @access  Admin
 router.get('/demo-users', async (req, res) => {
   try {
+    // Get all demo users
     const demoUsers = await User.find({ isDemo: true })
-      .sort({ createdAt: -1 })
-      .select('-password');
+      .select('-password')
+      .sort({ createdAt: -1 });
+
+    // Get session information for each demo user
+    const demoUsersWithSessions = await Promise.all(
+      demoUsers.map(async (user) => {
+        const session = await DemoSession.findOne({ userId: user._id, isActive: true });
+        return {
+          ...user.toObject(),
+          sessionScans: session ? session.sessionScans : 0,
+          lastLogin: session ? session.lastLogin : null,
+          lastActivity: session ? session.lastActivity : null,
+          sessionCreated: session ? session.createdAt : null
+        };
+      })
+    );
 
     res.json({
       success: true,
-      demoUsers
+      demoUsers: demoUsersWithSessions
     });
   } catch (error) {
     console.error('Get demo users error:', error);
@@ -524,166 +543,137 @@ router.get('/demo-users', async (req, res) => {
   }
 });
 
-// @route   POST /api/admin/demo-users
-// @desc    Create a new demo user with demo plan (5 card scans, no time limit)
+// @route   GET /api/admin/demo-users/:id/scan-history
+// @desc    Get scan history for a specific demo user with pagination
 // @access  Admin
-router.post('/demo-users', async (req, res) => {
+router.get('/demo-users/:id/scan-history', async (req, res) => {
   try {
-    const { email, password, firstName, lastName, companyName, phoneNumber } = req.body;
-
-    // Check if user already exists
-    const existingUser = await User.findOne({ email });
-    if (existingUser) {
-      return res.status(400).json({
-        error: 'Email already exists'
-      });
-    }
-
-    // Find the demo plan
-    const demoPlan = await Plan.findOne({ name: 'demo' });
-    if (!demoPlan) {
-      return res.status(500).json({
-        error: 'Demo plan not found. Please run createDemoPlan.js script first.'
-      });
-    }
-
-    // Create demo user with demo plan (5 card scans, no time limit)
-    // companyName and phoneNumber are optional
-    const demoUser = new User({
-      email,
-      password,
-      firstName,
-      lastName,
-      companyName: companyName || 'Demo Company',
-      phoneNumber: phoneNumber || '000-000-0000',
-      isDemo: true,
-      demoCardScans: 5,
-      currentPlan: demoPlan._id,
-      planStartDate: new Date(),
-      planEndDate: null, // No expiration for demo plan
-      role: 'user',
-      isActive: true
-    });
-
-    await demoUser.save();
-
-    res.status(201).json({
-      success: true,
-      message: 'Demo user created successfully with 5 card scans (no time limit)',
-      demoUser: {
-        id: demoUser._id,
-        email: demoUser.email,
-        firstName: demoUser.firstName,
-        lastName: demoUser.lastName,
-        companyName: demoUser.companyName,
-        phoneNumber: demoUser.phoneNumber,
-        isDemo: demoUser.isDemo,
-        demoCardScans: demoUser.demoCardScans,
-        currentPlan: demoPlan.displayName
-      }
-    });
-  } catch (error) {
-    console.error('Create demo user error:', error);
-    res.status(500).json({
-      error: 'Server error while creating demo user'
-    });
-  }
-});
-
-// @route   PUT /api/admin/demo-users/:id
-// @desc    Update demo user details
-// @access  Admin
-router.put('/demo-users/:id', async (req, res) => {
-  try {
-    const { firstName, lastName, email, companyName, phoneNumber, demoCardScans, isActive } = req.body;
-
-    const user = await User.findById(req.params.id);
-    if (!user) {
+    const userId = req.params.id;
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 20;
+    
+    // Verify user is demo user
+    const user = await User.findById(userId);
+    if (!user || !user.isDemo) {
       return res.status(404).json({
         error: 'Demo user not found'
       });
     }
 
-    if (!user.isDemo) {
-      return res.status(400).json({
-        error: 'User is not a demo user'
-      });
-    }
-
-    // Check if email is being changed and if it's already taken
-    if (email && email !== user.email) {
-      const existingUser = await User.findOne({ email });
-      if (existingUser) {
-        return res.status(400).json({
-          error: 'Email already exists'
-        });
-      }
-      user.email = email;
-    }
-
-    if (firstName) user.firstName = firstName;
-    if (lastName) user.lastName = lastName;
-    if (companyName) user.companyName = companyName;
-    if (phoneNumber) user.phoneNumber = phoneNumber;
-    if (demoCardScans !== undefined) user.demoCardScans = demoCardScans;
-    if (isActive !== undefined) user.isActive = isActive;
-
-    await user.save();
+    // Get current session
+    const currentSession = await DemoSession.findOne({ userId, isActive: true });
+    
+    // Get scan activities with pagination
+    const scanHistory = await ScanActivity.getScanActivities(userId, page, limit);
 
     res.json({
       success: true,
-      message: 'Demo user updated successfully',
-      demoUser: {
+      user: {
         id: user._id,
+        email: user.email,
         firstName: user.firstName,
         lastName: user.lastName,
-        email: user.email,
-        companyName: user.companyName,
-        phoneNumber: user.phoneNumber,
-        demoCardScans: user.demoCardScans,
-        isActive: user.isActive
-      }
+        isDemo: user.isDemo
+      },
+      currentSession: currentSession ? {
+        sessionScans: currentSession.sessionScans,
+        lastLogin: currentSession.lastLogin,
+        lastActivity: currentSession.lastActivity,
+        createdAt: currentSession.createdAt,
+        updatedAt: currentSession.updatedAt
+      } : null,
+      scanHistory: scanHistory.activities.map(activity => ({
+        id: activity._id,
+        sessionId: activity.sessionId,
+        scanCount: activity.scanCount,
+        scanType: activity.scanType,
+        filesProcessed: activity.filesProcessed,
+        sessionScansRemaining: activity.sessionScansRemaining,
+        scanDate: activity.scanDate,
+        ipAddress: activity.ipAddress,
+        userAgent: activity.userAgent
+      })),
+      pagination: scanHistory.pagination
     });
   } catch (error) {
-    console.error('Update demo user error:', error);
+    console.error('Get demo user scan history error:', error);
     res.status(500).json({
-      error: 'Server error while updating demo user'
+      error: 'Server error while fetching scan history'
     });
   }
 });
 
-// @route   DELETE /api/admin/demo-users/:id
-// @desc    Delete demo user (hard delete - permanently removes from database)
+// @route   GET /api/admin/scan-activities
+// @desc    Get all scan activities with pagination (for admin overview)
 // @access  Admin
-router.delete('/demo-users/:id', async (req, res) => {
+router.get('/scan-activities', async (req, res) => {
   try {
-    const user = await User.findById(req.params.id);
-    if (!user) {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 20;
+    const userId = req.query.userId || null;
+    
+    // Get scan activities with pagination
+    const scanActivities = await ScanActivity.getAllScanActivities(page, limit, userId);
+
+    res.json({
+      success: true,
+      scanActivities: scanActivities.activities.map(activity => ({
+        id: activity._id,
+        user: activity.userId ? {
+          id: activity.userId._id,
+          name: `${activity.userId.firstName} ${activity.userId.lastName}`,
+          email: activity.userId.email
+        } : null,
+        sessionId: activity.sessionId,
+        scanCount: activity.scanCount,
+        scanType: activity.scanType,
+        filesProcessed: activity.filesProcessed,
+        sessionScansRemaining: activity.sessionScansRemaining,
+        scanDate: activity.scanDate,
+        ipAddress: activity.ipAddress,
+        userAgent: activity.userAgent
+      })),
+      pagination: scanActivities.pagination
+    });
+  } catch (error) {
+    console.error('Get scan activities error:', error);
+    res.status(500).json({
+      error: 'Server error while fetching scan activities'
+    });
+  }
+});
+
+// @route   POST /api/admin/demo-users/:id/reset-session
+// @desc    Reset demo user session (give them 5 new scans)
+// @access  Admin
+router.post('/demo-users/:id/reset-session', async (req, res) => {
+  try {
+    const userId = req.params.id;
+    
+    // Verify user is demo user
+    const user = await User.findById(userId);
+    if (!user || !user.isDemo) {
       return res.status(404).json({
         error: 'Demo user not found'
       });
     }
 
-    if (!user.isDemo) {
-      return res.status(400).json({
-        error: 'User is not a demo user'
-      });
-    }
-
-    // Delete associated usage records
-    await Usage.deleteMany({ user: user._id });
-
-    // Hard delete - permanently remove from database
-    await User.findByIdAndDelete(req.params.id);
+    // Reset session
+    const session = await DemoSession.resetSessionOnLogin(userId);
 
     res.json({
       success: true,
-      message: 'Demo user deleted permanently'
+      message: 'Demo user session reset successfully',
+      session: {
+        sessionScans: session.sessionScans,
+        lastLogin: session.lastLogin,
+        lastActivity: session.lastActivity
+      }
     });
   } catch (error) {
-    console.error('Delete demo user error:', error);
+    console.error('Reset demo user session error:', error);
     res.status(500).json({
-      error: 'Server error while deleting demo user'
+      error: 'Server error while resetting session'
     });
   }
 });

@@ -23,7 +23,9 @@ const UserUsage = () => {
     planEndDate: null,
     daysRemaining: 0,
     isPlanExpired: false,
-    recentActivity: []
+    recentActivity: [],
+    isDemo: false,
+    sessionScans: 0
   });
 
   const [isLoading, setIsLoading] = useState(true);
@@ -72,6 +74,96 @@ const UserUsage = () => {
     );
   }
 
+  // Demo user - show only session analytics
+  if (usageData.isDemo) {
+    return (
+      <div className="max-w-6xl mx-auto">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-white border border-premium-border rounded-2xl p-8 shadow-lg"
+        >
+          {/* Header */}
+          <div className="mb-8">
+            <h1 className="text-3xl font-bold text-premium-black">Demo Analytics</h1>
+            <p className="text-premium-gray mt-2">Your current demo usage</p>
+          </div>
+
+          {/* Demo Card */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="border-2 border-premium-orange bg-gradient-to-br from-premium-orange to-orange-600 rounded-xl p-6 shadow-lg"
+            >
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-white text-sm font-medium">Scans Remaining</p>
+                  <p className="text-4xl font-bold text-white">{usageData.sessionScans}</p>
+                  <p className="text-orange-100 text-xs mt-1">Out of 5 total</p>
+                </div>
+                <div className="h-14 w-14 bg-white bg-opacity-20 rounded-lg flex items-center justify-center">
+                  <BarChart3 className="h-8 w-8 text-white" />
+                </div>
+              </div>
+            </motion.div>
+
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.1 }}
+              className="border border-premium-border rounded-xl p-6 bg-white"
+            >
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-premium-gray text-sm font-medium">Usage</p>
+                  <p className="text-3xl font-bold text-premium-black">{5 - usageData.sessionScans}</p>
+                  <p className="text-premium-gray text-xs mt-1">Scans used</p>
+                </div>
+                <div className="h-12 w-12 bg-blue-100 rounded-lg flex items-center justify-center">
+                  <FileText className="h-6 w-6 text-blue-600" />
+                </div>
+              </div>
+            </motion.div>
+          </div>
+
+          {/* Usage Progress */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+            className="border border-premium-border rounded-xl p-6 mb-8"
+          >
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-premium-black">Usage</h3>
+              <span className="text-sm text-premium-gray">
+                {5 - usageData.sessionScans} / 5 scans used
+              </span>
+            </div>
+
+            <div className="w-full bg-premium-beige rounded-full h-3 mb-2">
+              <div
+                className="bg-premium-orange h-3 rounded-full transition-all duration-300"
+                style={{ width: `${((5 - usageData.sessionScans) / 5) * 100}%` }}
+              ></div>
+            </div>
+
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-premium-gray">
+                {(((5 - usageData.sessionScans) / 5) * 100).toFixed(1)}% used
+              </span>
+              <span className="text-premium-gray">
+                {usageData.sessionScans} remaining
+              </span>
+            </div>
+          </motion.div>
+
+        </motion.div>
+      </div>
+    );
+  }
+
+  // Regular user - show full analytics
   return (
     <div className="max-w-6xl mx-auto">
       <motion.div

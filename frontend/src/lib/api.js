@@ -191,24 +191,26 @@ export const apiService = {
     return response.data;
   },
 
-  // Demo Users Management
+  // Demo user management
   getDemoUsers: async () => {
     const response = await api.get('/api/admin/demo-users');
     return response.data;
   },
 
-  createDemoUser: async (userData) => {
-    const response = await api.post('/api/admin/demo-users', userData);
+  getDemoUserScanHistory: async (userId, page = 1, limit = 20) => {
+    const response = await api.get(`/api/admin/demo-users/${userId}/scan-history?page=${page}&limit=${limit}`);
     return response.data;
   },
 
-  updateDemoUser: async (userId, userData) => {
-    const response = await api.put(`/api/admin/demo-users/${userId}`, userData);
+  getAllScanActivities: async (page = 1, limit = 20, userId = null) => {
+    const params = new URLSearchParams({ page, limit });
+    if (userId) params.append('userId', userId);
+    const response = await api.get(`/api/admin/scan-activities?${params}`);
     return response.data;
   },
 
-  deleteDemoUser: async (userId) => {
-    const response = await api.delete(`/api/admin/demo-users/${userId}`);
+  resetDemoUserSession: async (userId) => {
+    const response = await api.post(`/api/admin/demo-users/${userId}/reset-session`);
     return response.data;
   },
 

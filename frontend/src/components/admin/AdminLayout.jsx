@@ -10,7 +10,7 @@ import {
   LogOut,
   Settings,
   Shield,
-  UserCog
+  UserCheck
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import AdminDashboard from './AdminDashboard';
@@ -27,7 +27,7 @@ const AdminLayout = () => {
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'users', label: 'User Management', icon: Users },
-    { id: 'demo-users', label: 'Demo Users', icon: UserCog },
+    { id: 'demo-users', label: 'Demo Users', icon: UserCheck },
     { id: 'plans', label: 'Plan Management', icon: CreditCard },
     { id: 'analytics', label: 'Usage Analytics', icon: BarChart3 },
   ];
