@@ -3,9 +3,11 @@ const User = require('../models/User');
 const Usage = require('../models/Usage');
 const Plan = require('../models/Plan');
 const DemoSession = require('../models/DemoSession');
+const OTP = require('../models/OTP');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const winston = require('winston');
+const whatsappOTPService = require('../services/whatsappOTPService');
 
 // Create logger
 const logger = winston.createLogger({
@@ -606,6 +608,189 @@ const getProcessingHistory = async (req, res) => {
   }
 };
 
+// Send WhatsApp OTP
+const sendOTP = async (req, res) => {
+  try {
+    const { phoneNumber, fullName } = req.body;
+
+    // Validation
+    if (!phoneNumber) {
+      return res.status(400).json({
+        success: false,
+        message: 'Phone number is required'
+      });
+    }
+
+    // Format phone number
+    let formattedPhone = phoneNumber.replace(/\D/g, '');
+    if (!formattedPhone.startsWith('91')) {
+      formattedPhone = '91' + formattedPhone;
+    }
+
+    // Create OTP record in database first
+    const otpRecord = await OTP.createOTP(formattedPhone, fullName);
+    
+    // Send OTP via WhatsApp using the OTP from database
+    const result = await whatsappOTPService.sendOTP(formattedPhone, fullName, otpRecord.otp);
+
+    if (result.success) {
+      res.json({
+        success: true,
+        message: 'OTP sent successfully',
+        data: {
+          phoneNumber: formattedPhone,
+          messageId: result.messageId
+        }
+      });
+    } else {
+      res.status(400).json({
+        success: false,
+        message: result.error || 'Failed to send OTP',
+        details: result.details
+      });
+    }
+  } catch (error) {
+    console.error('Send OTP error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error while sending OTP',
+      error: error.message
+    });
+  }
+};
+
+// Verify WhatsApp OTP
+const verifyOTP = async (req, res) => {
+  try {
+    const { phoneNumber, otp, fullName } = req.body;
+    
+    console.log('🔍 verifyOTP called with:', { phoneNumber, otp, fullName });
+
+    // Validation
+    if (!phoneNumber || !otp) {
+      console.log('❌ Validation failed: missing phoneNumber or otp');
+      return res.status(400).json({
+        success: false,
+        message: 'Phone number and OTP are required'
+      });
+    }
+
+    // Format phone number
+    let formattedPhone = phoneNumber.replace(/\D/g, '');
+    if (!formattedPhone.startsWith('91')) {
+      formattedPhone = '91' + formattedPhone;
+    }
+    
+    console.log('📱 Formatted phone number:', formattedPhone);
+
+    // Check if user exists with this phone number FIRST
+    let user = await User.findOne({ phoneNumber: formattedPhone });
+    
+    console.log('👤 User lookup result:', user ? {
+      id: user._id,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      phoneNumber: user.phoneNumber,
+      isWhatsAppUser: user.isWhatsAppUser
+    } : 'No user found');
+
+    // Determine if this is a signup or login flow
+    const isSignupFlow = fullName && fullName.trim() !== '';
+    const isLoginFlow = !fullName || fullName.trim() === '';
+
+    console.log('🔄 Flow detection:', { isSignupFlow, isLoginFlow, fullName });
+
+    // If it's a login flow and user doesn't exist, return signup first error
+    if (!user && isLoginFlow) {
+      console.log('❌ Login attempt without signup');
+      return res.status(400).json({
+        success: false,
+        message: 'Signup First to use our Service'
+      });
+    }
+
+    // Verify OTP using the OTP model
+    const verificationResult = await OTP.verifyOTP(formattedPhone, otp);
+    console.log('✅ OTP verification result:', verificationResult);
+
+    if (!verificationResult.success) {
+      console.log('❌ OTP verification failed:', verificationResult.message);
+      return res.status(400).json({
+        success: false,
+        message: verificationResult.message
+      });
+    }
+
+    if (!user && isSignupFlow) {
+      // SIGNUP FLOW: Create new user if doesn't exist and fullName is provided
+      console.log('📝 Creating new user (Signup flow)');
+      
+      const starterPlan = await Plan.findOne({ name: 'starter' });
+      if (!starterPlan) {
+        const defaultPlans = Plan.getDefaultPlans();
+        await Plan.insertMany(defaultPlans);
+      }
+      
+      const finalStarterPlan = await Plan.findOne({ name: 'starter' });
+      
+      const planStartDate = new Date();
+      const planEndDate = new Date();
+      planEndDate.setDate(planEndDate.getDate() + 30);
+
+      user = new User({
+        firstName: fullName.split(' ')[0] || fullName,
+        lastName: fullName.split(' ').slice(1).join(' ') || '',
+        email: `${formattedPhone}@whatsapp.user`, // Temporary email
+        phoneNumber: formattedPhone,
+        companyName: 'WhatsApp User',
+        currentPlan: finalStarterPlan._id,
+        planStartDate,
+        planEndDate,
+        isWhatsAppUser: true
+      });
+
+      await user.save();
+      console.log('✅ New user created:', {
+        id: user._id,
+        name: `${user.firstName} ${user.lastName}`,
+        phoneNumber: user.phoneNumber
+      });
+      
+    } else if (user && isLoginFlow) {
+      // LOGIN FLOW: Update last login for existing user
+      console.log('🔑 Updating existing user (Login flow)');
+      user.lastLogin = new Date();
+      await user.save();
+    }
+
+    // Generate token
+    const token = generateToken(user._id);
+
+    res.json({
+      success: true,
+      message: 'OTP verified successfully',
+      token,
+      user: {
+        id: user._id,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        email: user.email,
+        companyName: user.companyName,
+        phoneNumber: user.phoneNumber,
+        role: user.role,
+        isWhatsAppUser: user.isWhatsAppUser || false
+      }
+    });
+  } catch (error) {
+    console.error('Verify OTP error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error while verifying OTP',
+      error: error.message
+    });
+  }
+};
+
 module.exports = {
   register,
   login,
@@ -613,5 +798,7 @@ module.exports = {
   changePassword,
   getUserProfile,
   updateUserProfile,
-  getProcessingHistory
+  getProcessingHistory,
+  sendOTP,
+  verifyOTP
 };

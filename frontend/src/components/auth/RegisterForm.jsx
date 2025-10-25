@@ -88,13 +88,13 @@ const RegisterForm = ({ onSwitchToLogin }) => {
   };
 
   return (
-    <div className="bg-premium-white rounded-2xl shadow-xl p-8 w-3/4 mx-auto min-w-[500px] max-w-[800px]">
-      <div className="text-center mb-8">
-        <h2 className="text-3xl font-bold text-premium-black mb-2">Create Account</h2>
-        <p className="text-premium-gray">Join our business card analyzer platform</p>
+    <div className="bg-premium-white rounded-2xl shadow-xl p-4 sm:p-6 md:p-8 w-full sm:w-11/12 md:w-3/4 mx-auto max-w-[800px]">
+      <div className="text-center mb-6 sm:mb-8">
+        <h2 className="text-2xl sm:text-3xl font-bold text-premium-black mb-2">Create Account</h2>
+        <p className="text-premium-gray text-sm sm:text-base">Join our business card analyzer platform</p>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-5">
+      <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-5">
         {/* First Line: First Name and Last Name */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
@@ -252,16 +252,16 @@ const RegisterForm = ({ onSwitchToLogin }) => {
         </div>
 
         {/* Submit Button */}
-        <div className="pt-4">
+        <div className="pt-2 sm:pt-4">
           <Button
             type="submit"
             disabled={isAuthLoading || formData.password !== formData.confirmPassword}
-            className="w-full bg-premium-black hover:bg-premium-orange text-premium-white border-0 shadow-lg transition-all duration-200 h-12 text-base font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full bg-premium-black hover:bg-premium-orange text-premium-white border-0 shadow-lg transition-all duration-200 h-11 sm:h-12 text-sm sm:text-base font-medium disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isAuthLoading ? (
               <div className="flex items-center justify-center">
                 <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                Creating Account...
+                <span className="text-sm sm:text-base">Creating Account...</span>
               </div>
             ) : (
               'Create Account'
@@ -270,8 +270,8 @@ const RegisterForm = ({ onSwitchToLogin }) => {
         </div>
       </form>
 
-      <div className="mt-6 text-center">
-        <p className="text-premium-gray text-sm">
+      <div className="mt-4 sm:mt-6 text-center">
+        <p className="text-premium-gray text-xs sm:text-sm">
           Already have an account?{' '}
           <button
             onClick={onSwitchToLogin}

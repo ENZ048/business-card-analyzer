@@ -21,6 +21,7 @@ router.get('/dashboard', async (req, res) => {
     // Get total users
     const totalUsers = await User.countDocuments();
     const activeUsers = await User.countDocuments({ isActive: true });
+    const whatsappUsers = await User.countDocuments({ isWhatsAppUser: true });
     const newUsersThisMonth = await User.countDocuments({
       createdAt: {
         $gte: new Date(currentYear, currentMonth - 1, 1),
@@ -73,13 +74,14 @@ router.get('/dashboard', async (req, res) => {
       .populate('currentPlan', 'displayName')
       .sort({ createdAt: -1 })
       .limit(10)
-      .select('firstName lastName email role isActive createdAt currentPlan');
+      .select('firstName lastName email phoneNumber role isActive createdAt currentPlan isWhatsAppUser');
 
     res.json({
       success: true,
       stats: {
         totalUsers,
         activeUsers,
+        whatsappUsers,
         newUsersThisMonth,
         totalScansThisMonth: totalScansThisMonth[0]?.totalScans || 0,
         planDistribution,
@@ -105,6 +107,7 @@ router.get('/users', async (req, res) => {
     const search = req.query.search || '';
     const role = req.query.role || '';
     const isActive = req.query.isActive;
+    const isWhatsAppUser = req.query.isWhatsAppUser;
 
     const skip = (page - 1) * limit;
 
@@ -114,11 +117,13 @@ router.get('/users', async (req, res) => {
       filter.$or = [
         { firstName: { $regex: search, $options: 'i' } },
         { lastName: { $regex: search, $options: 'i' } },
-        { email: { $regex: search, $options: 'i' } }
+        { email: { $regex: search, $options: 'i' } },
+        { phoneNumber: { $regex: search, $options: 'i' } }
       ];
     }
     if (role) filter.role = role;
     if (isActive !== undefined) filter.isActive = isActive === 'true';
+    if (isWhatsAppUser !== undefined) filter.isWhatsAppUser = isWhatsAppUser === 'true';
 
     const users = await User.find(filter)
       .populate('currentPlan', 'displayName cardScansLimit')
@@ -499,6 +504,112 @@ router.post('/users/:id/reset-usage', superAdminMiddleware, async (req, res) => 
     console.error('Reset usage error:', error);
     res.status(500).json({
       error: 'Server error while resetting usage'
+    });
+  }
+});
+
+// @route   GET /api/admin/whatsapp-users
+// @desc    Get WhatsApp users statistics and list
+// @access  Admin
+router.get('/whatsapp-users', async (req, res) => {
+  try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 20;
+    const search = req.query.search || '';
+
+    const skip = (page - 1) * limit;
+
+    // Build filter for WhatsApp users
+    const filter = { isWhatsAppUser: true };
+    if (search) {
+      filter.$or = [
+        { firstName: { $regex: search, $options: 'i' } },
+        { lastName: { $regex: search, $options: 'i' } },
+        { phoneNumber: { $regex: search, $options: 'i' } }
+      ];
+    }
+
+    // Get WhatsApp users
+    const whatsappUsers = await User.find(filter)
+      .populate('currentPlan', 'displayName cardScansLimit')
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .select('-password');
+
+    const totalWhatsAppUsers = await User.countDocuments(filter);
+
+    // Get WhatsApp user statistics
+    const whatsappStats = await User.aggregate([
+      { $match: { isWhatsAppUser: true } },
+      {
+        $group: {
+          _id: null,
+          totalWhatsAppUsers: { $sum: 1 },
+          activeWhatsAppUsers: {
+            $sum: { $cond: [{ $eq: ['$isActive', true] }, 1, 0] }
+          },
+          newThisMonth: {
+            $sum: {
+              $cond: [
+                {
+                  $and: [
+                    { $gte: ['$createdAt', new Date(new Date().getFullYear(), new Date().getMonth(), 1)] },
+                    { $lt: ['$createdAt', new Date(new Date().getFullYear(), new Date().getMonth() + 1, 1)] }
+                  ]
+                },
+                1,
+                0
+              ]
+            }
+          }
+        }
+      }
+    ]);
+
+    // Get WhatsApp users by month (last 6 months)
+    const whatsappTrends = await User.aggregate([
+      {
+        $match: {
+          isWhatsAppUser: true,
+          createdAt: {
+            $gte: new Date(new Date().setMonth(new Date().getMonth() - 6))
+          }
+        }
+      },
+      {
+        $group: {
+          _id: {
+            year: { $year: '$createdAt' },
+            month: { $month: '$createdAt' }
+          },
+          count: { $sum: 1 }
+        }
+      },
+      { $sort: { '_id.year': 1, '_id.month': 1 } }
+    ]);
+
+    res.json({
+      success: true,
+      whatsappUsers,
+      stats: whatsappStats[0] || {
+        totalWhatsAppUsers: 0,
+        activeWhatsAppUsers: 0,
+        newThisMonth: 0
+      },
+      trends: whatsappTrends,
+      pagination: {
+        currentPage: page,
+        totalPages: Math.ceil(totalWhatsAppUsers / limit),
+        totalUsers: totalWhatsAppUsers,
+        hasNext: page < Math.ceil(totalWhatsAppUsers / limit),
+        hasPrev: page > 1
+      }
+    });
+  } catch (error) {
+    console.error('Get WhatsApp users error:', error);
+    res.status(500).json({
+      error: 'Server error while fetching WhatsApp users'
     });
   }
 });

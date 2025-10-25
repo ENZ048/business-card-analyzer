@@ -59,3 +59,56 @@ body {
 ::-webkit-scrollbar-thumb:hover {
   background: #E02A08; /* premium-orange-dark */
 }
+
+/* Mobile-specific styles for better APK experience */
+@media (max-width: 640px) {
+  /* Ensure form inputs are touch-friendly */
+  input[type="text"], 
+  input[type="email"], 
+  input[type="tel"], 
+  input[type="password"] {
+    font-size: 16px; /* Prevents zoom on iOS */
+    min-height: 44px; /* Apple's recommended touch target size */
+  }
+  
+  /* Better spacing for mobile forms */
+  .space-y-4 > * + * {
+    margin-top: 1rem;
+  }
+  
+  /* Ensure buttons are touch-friendly */
+  button {
+    min-height: 44px;
+    min-width: 44px;
+  }
+  
+  /* Prevent horizontal scrolling */
+  body {
+    overflow-x: hidden;
+  }
+  
+  /* Better text sizing for mobile */
+  h1, h2, h3 {
+    line-height: 1.2;
+  }
+  
+  /* Ensure proper viewport handling */
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+  
+  /* Add extra top spacing for mobile devices */
+  .min-h-screen {
+    padding-top: env(safe-area-inset-top, 0px);
+  }
+  
+  /* Ensure content doesn't get cut off on mobile */
+  .pt-8 {
+    padding-top: 2rem !important;
+  }
+  
+  /* Better spacing for mobile headers */
+  .text-center.mb-8 {
+    margin-bottom: 1.5rem;
+  }
+}

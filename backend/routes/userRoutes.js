@@ -8,12 +8,18 @@ const {
   changePassword,
   getUserProfile,
   updateUserProfile,
-  getProcessingHistory
+  getProcessingHistory,
+  sendOTP,
+  verifyOTP
 } = require('../controllers/userController');
 
 // Public authentication routes (no auth required)
 router.post('/register', register);
 router.post('/login', login);
+
+// WhatsApp OTP routes
+router.post('/send-otp', sendOTP);
+router.post('/verify-otp', verifyOTP);
 
 // Protected routes (require authentication)
 router.use(authMiddleware);

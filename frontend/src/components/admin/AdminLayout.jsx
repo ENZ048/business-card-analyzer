@@ -10,7 +10,8 @@ import {
   LogOut,
   Settings,
   Shield,
-  UserCheck
+  UserCheck,
+  UserPlus
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import AdminDashboard from './AdminDashboard';
@@ -18,6 +19,7 @@ import UserManagement from './UserManagement';
 import PlanManagement from './PlanManagement';
 import UsageAnalytics from './UsageAnalytics';
 import DemoUserManagement from './DemoUserManagement';
+import NewUserDetail from './NewUserDetail';
 
 const AdminLayout = () => {
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -27,6 +29,7 @@ const AdminLayout = () => {
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'users', label: 'User Management', icon: Users },
+    { id: 'new-users', label: 'New User Detail', icon: UserPlus },
     { id: 'demo-users', label: 'Demo Users', icon: UserCheck },
     { id: 'plans', label: 'Plan Management', icon: CreditCard },
     { id: 'analytics', label: 'Usage Analytics', icon: BarChart3 },
@@ -38,6 +41,8 @@ const AdminLayout = () => {
         return <AdminDashboard />;
       case 'users':
         return <UserManagement />;
+      case 'new-users':
+        return <NewUserDetail />;
       case 'demo-users':
         return <DemoUserManagement />;
       case 'plans':
