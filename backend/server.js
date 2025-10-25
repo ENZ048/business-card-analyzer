@@ -76,12 +76,17 @@ app.set("trust proxy", 1);
 const corsOptions = {
   origin: [
     "http://localhost:5173",           // local dev (Vite default port)
+    "http://localhost:5174",           // local dev (alternative port)
     "http://localhost:3000",           // local dev (alternative)
     "https://login.superscanai.com",   // React UI (production)
     "https://api.superscanai.com",     // API origin (if needed)
     "https://superscanai.com",         // WordPress root (optional)
     "https://www.superscanai.com",
-    "https://login.superscanai.com"
+    "https://login.superscanai.com",
+    "capacitor://localhost",           // Capacitor mobile app
+    "ionic://localhost",               // Ionic mobile app
+    "http://localhost",                // Local development
+    "https://localhost"                // Local HTTPS development
   ],
   credentials: true,
   optionsSuccessStatus: 200,
@@ -98,8 +103,19 @@ if (process.env.NODE_ENV === "production") {
   // Handle preflight requests explicitly for large file uploads
   app.options('*', cors(corsOptions));
 } else {
-  // In dev allow local dev origin and credentials
-  const devCorsOptions = { origin: ["http://localhost:5173", "http://localhost:3000"], credentials: true };
+  // In dev allow local dev origin and credentials + mobile app origins
+  const devCorsOptions = { 
+    origin: [
+      "http://localhost:5173", 
+      "http://localhost:5174", 
+      "http://localhost:3000",
+      "capacitor://localhost",
+      "ionic://localhost",
+      "http://localhost",
+      "https://localhost"
+    ], 
+    credentials: true 
+  };
   app.use(cors(devCorsOptions));
   app.options('*', cors(devCorsOptions));
 }
