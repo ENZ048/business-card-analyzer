@@ -82,6 +82,30 @@ export const apiService = {
     return response.data;
   },
 
+  // WhatsApp OTP Authentication
+  sendOTP: async (phoneNumber, fullName = null) => {
+    console.log('🔍 sendOTP called with:', { phoneNumber, fullName });
+    console.log('🔍 API Base URL:', API_BASE_URL);
+    const response = await api.post('/api/users/send-otp', { 
+      phoneNumber, 
+      fullName 
+    });
+    console.log('✅ sendOTP response:', response.data);
+    return response.data;
+  },
+
+  verifyOTP: async (phoneNumber, otp, fullName = null) => {
+    console.log('🔍 verifyOTP called with:', { phoneNumber, otp, fullName });
+    console.log('🔍 API Base URL:', API_BASE_URL);
+    const response = await api.post('/api/users/verify-otp', { 
+      phoneNumber, 
+      otp, 
+      fullName 
+    });
+    console.log('✅ verifyOTP response:', response.data);
+    return response.data;
+  },
+
   getProfile: async () => {
     const response = await api.get('/api/users/profile');
     return response.data;
@@ -143,13 +167,22 @@ export const apiService = {
     return response.data;
   },
 
-  getAdminUsers: async (page = 1, limit = 20, search = '', role = '', isActive = '') => {
+  getAdminUsers: async (page = 1, limit = 20, search = '', role = '', isActive = '', isWhatsAppUser = '') => {
     const params = new URLSearchParams({ page, limit });
     if (search) params.append('search', search);
     if (role) params.append('role', role);
     if (isActive) params.append('isActive', isActive);
+    if (isWhatsAppUser) params.append('isWhatsAppUser', isWhatsAppUser);
     
     const response = await api.get(`/api/admin/users?${params}`);
+    return response.data;
+  },
+
+  getWhatsAppUsers: async (page = 1, limit = 20, search = '') => {
+    const params = new URLSearchParams({ page, limit });
+    if (search) params.append('search', search);
+    
+    const response = await api.get(`/api/admin/whatsapp-users?${params}`);
     return response.data;
   },
 

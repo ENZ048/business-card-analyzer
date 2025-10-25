@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Super Scanner</string>
+    <string name="title_activity_main">Super Scanner</string>
+    <string name="package_name">com.troikatech.superscanner</string>
+    <string name="custom_url_scheme">com.troikatech.superscanner</string>
+</resources>

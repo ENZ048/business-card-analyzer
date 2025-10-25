@@ -4,14 +4,18 @@ const bcrypt = require('bcryptjs');
 const userSchema = new mongoose.Schema({
   email: {
     type: String,
-    required: true,
+    required: function() {
+      return !this.isWhatsAppUser;
+    },
     unique: true,
     lowercase: true,
     trim: true
   },
   password: {
     type: String,
-    required: true,
+    required: function() {
+      return !this.isWhatsAppUser;
+    },
     minlength: 6
   },
   firstName: {
@@ -57,6 +61,10 @@ const userSchema = new mongoose.Schema({
     default: 'user'
   },
   isDemo: {
+    type: Boolean,
+    default: false
+  },
+  isWhatsAppUser: {
     type: Boolean,
     default: false
   },

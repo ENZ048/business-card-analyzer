@@ -207,6 +207,41 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  // Send OTP function
+  const sendOTP = async (phoneNumber, fullName = null) => {
+    try {
+      const response = await apiService.sendOTP(phoneNumber, fullName);
+      return { success: true, data: response };
+    } catch (error) {
+      const errorMessage = error.response?.data?.error || 'Failed to send OTP';
+      return { success: false, error: errorMessage };
+    }
+  };
+
+  // Verify OTP function
+  const verifyOTP = async (phoneNumber, otp, fullName = null) => {
+    dispatch({ type: AUTH_ACTIONS.LOGIN_START });
+    
+    try {
+      const response = await apiService.verifyOTP(phoneNumber, otp, fullName);
+      dispatch({
+        type: AUTH_ACTIONS.LOGIN_SUCCESS,
+        payload: {
+          user: response.user,
+          token: response.token
+        }
+      });
+      return { success: true };
+    } catch (error) {
+      const errorMessage = error.response?.data?.message || error.response?.data?.error || 'OTP verification failed';
+      dispatch({
+        type: AUTH_ACTIONS.LOGIN_FAILURE,
+        payload: errorMessage
+      });
+      return { success: false, error: errorMessage };
+    }
+  };
+
   // Logout function
   const logout = () => {
     dispatch({ type: AUTH_ACTIONS.LOGOUT });
@@ -232,7 +267,9 @@ export const AuthProvider = ({ children }) => {
     logout,
     updateUser,
     clearError,
-    loadUser
+    loadUser,
+    sendOTP,
+    verifyOTP
   };
 
   return (
