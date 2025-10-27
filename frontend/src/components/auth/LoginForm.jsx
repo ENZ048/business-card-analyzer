@@ -62,7 +62,7 @@ const LoginForm = ({ onSwitchToRegister }) => {
   return (
     <div className="bg-premium-white rounded-2xl shadow-xl p-8">
         <div className="text-center mb-8">
-          <h2 className="text-3xl font-bold text-premium-black mb-2">Welcome Back</h2>
+          <h2 className="text-3xl font-bold text-premium-black mb-2">Welcome to Troika Tech</h2>
           <p className="text-premium-gray">Sign in to your account</p>
         </div>
 

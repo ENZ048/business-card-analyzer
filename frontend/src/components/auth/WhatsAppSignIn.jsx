@@ -134,7 +134,7 @@ const WhatsAppSignIn = ({ onSwitchToSignUp, onShowPopup }) => {
   return (
     <div className="bg-premium-white rounded-xl sm:rounded-2xl shadow-xl p-3 sm:p-4 md:p-6 lg:p-8 w-full mx-auto">
       <div className="text-center mb-4 sm:mb-6 md:mb-8">
-        <h2 className="text-xl sm:text-2xl md:text-3xl font-bold text-premium-black mb-1 sm:mb-2">Welcome Back</h2>
+        <h2 className="text-xl sm:text-2xl md:text-3xl font-bold text-premium-black mb-1 sm:mb-2">Welcome to Troika Tech</h2>
         <p className="text-xs sm:text-sm md:text-base text-premium-gray px-2">Sign in with your WhatsApp number</p>
       </div>
       
