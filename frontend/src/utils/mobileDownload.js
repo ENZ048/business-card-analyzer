@@ -1,6 +1,4 @@
 // utils/mobileDownload.js
-import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
-import { Share } from '@capacitor/share';
 import { Capacitor } from '@capacitor/core';
 
 /**
@@ -16,6 +14,10 @@ export const downloadFile = async (blob, filename, mimeType = 'application/octet
     // For mobile platforms (iOS, Android), use Capacitor Filesystem + Share
     if (platform === 'ios' || platform === 'android') {
       console.log('📱 Mobile detected - Using Capacitor Filesystem');
+      
+      // Dynamically import Capacitor plugins only on mobile
+      const { Filesystem, Directory, Encoding } = await import('@capacitor/filesystem');
+      const { Share } = await import('@capacitor/share');
       
       // Convert blob to base64
       const base64 = await blobToBase64(blob);
