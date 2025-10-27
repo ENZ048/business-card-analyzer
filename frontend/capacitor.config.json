@@ -2,6 +2,11 @@
   "appId": "com.troikatech.superscanner",
   "appName": "Super Scanner",
   "webDir": "dist",
+  "server": {
+    "androidScheme": "https",
+    "url": "http://192.168.0.101:5173",
+    "cleartext": true
+  },
   "plugins": {
     "SplashScreen": {
       "launchShowDuration": 2000,
