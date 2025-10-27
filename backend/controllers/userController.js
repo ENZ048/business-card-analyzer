@@ -627,11 +627,73 @@ const sendOTP = async (req, res) => {
       formattedPhone = '91' + formattedPhone;
     }
 
+    // Check if this is a login flow (no fullName provided) or signup flow
+    const isLoginFlow = !fullName || fullName.trim() === '';
+    const isSignupFlow = fullName && fullName.trim() !== '';
+
+    console.log('🔍 sendOTP called:', { phoneNumber: formattedPhone, isLoginFlow, isSignupFlow });
+
+    // For login flow, check if user exists in database
+    if (isLoginFlow) {
+      console.log('🔐 Login flow detected, checking user existence...');
+      console.log('🔍 Searching for phone number:', formattedPhone);
+      
+      // Try multiple phone number formats
+      console.log('🔍 Exact match search:', formattedPhone);
+      let existingUser = await User.findOne({ phoneNumber: formattedPhone });
+      
+      // If not found, try without leading '91'
+      if (!existingUser && formattedPhone.startsWith('91') && formattedPhone.length > 2) {
+        const withoutCountryCode = formattedPhone.substring(2);
+        console.log('🔍 Trying without country code:', withoutCountryCode);
+        existingUser = await User.findOne({ phoneNumber: withoutCountryCode });
+        
+        if (!existingUser) {
+          // Try with '91' prefix added
+          console.log('🔍 Trying with 91 prefix:', '91' + withoutCountryCode);
+          existingUser = await User.findOne({ phoneNumber: '91' + withoutCountryCode });
+        }
+      }
+      
+      // If still not found, try with '91' prefix if input doesn't have it
+      if (!existingUser && !formattedPhone.startsWith('91')) {
+        const withCountryCode = '91' + formattedPhone;
+        console.log('🔍 Trying with 91 prefix:', withCountryCode);
+        existingUser = await User.findOne({ phoneNumber: withCountryCode });
+      }
+      
+      // Last resort: regex search
+      if (!existingUser) {
+        const cleanedPhone = formattedPhone.replace(/\D/g, ''); // Remove all non-digits
+        console.log('🔍 Trying regex search on:', cleanedPhone);
+        existingUser = await User.findOne({ 
+          phoneNumber: { $regex: `^.*${cleanedPhone}.*$`, $options: 'i' } 
+        });
+      }
+      
+      console.log('👤 User lookup result:', existingUser ? `User found: ${existingUser.firstName} ${existingUser.lastName}` : 'User NOT found');
+      
+      if (!existingUser) {
+        console.log('❌ User does not exist, returning "Signup First for login"');
+        return res.status(400).json({
+          success: false,
+          message: 'Signup First for login'
+        });
+      }
+      console.log('✅ User exists, proceeding with OTP send');
+    }
+
+    console.log('📝 Creating OTP record in database...');
+    
     // Create OTP record in database first
     const otpRecord = await OTP.createOTP(formattedPhone, fullName);
     
+    console.log('✅ OTP record created, now sending OTP via WhatsApp...');
+    
     // Send OTP via WhatsApp using the OTP from database
     const result = await whatsappOTPService.sendOTP(formattedPhone, fullName, otpRecord.otp);
+    
+    console.log('📤 OTP send result:', result.success ? 'Success' : 'Failed');
 
     if (result.success) {
       res.json({

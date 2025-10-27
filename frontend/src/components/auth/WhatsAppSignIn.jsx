@@ -19,21 +19,59 @@ const WhatsAppSignIn = ({ onSwitchToSignUp, onShowPopup }) => {
       if (result.success) {
         setShowOTP(true);
       } else {
-        onShowPopup({
-          isOpen: true,
-          type: 'error',
-          title: 'Failed to Send OTP',
-          message: result.error || 'Failed to send OTP. Please try again.'
-        });
+        // Check if it's a "signup first" error
+        if (result.error && result.error.includes('Signup First')) {
+          console.log('🎯 Showing Signup Required popup on Send OTP');
+          onShowPopup({
+            isOpen: true,
+            type: 'warning',
+            title: 'Signup Required',
+            message: 'Please sign up first to use our service. You will be redirected to the signup form.',
+            autoClose: true,
+            autoCloseDelay: 3000
+          });
+          // Switch to signup mode after popup shows
+          setTimeout(() => {
+            console.log('🔄 Redirecting to signup form from Send OTP');
+            onSwitchToSignUp();
+          }, 3000);
+        } else {
+          onShowPopup({
+            isOpen: true,
+            type: 'error',
+            title: 'Failed to Send OTP',
+            message: result.error || 'Failed to send OTP. Please try again.'
+          });
+        }
       }
     } catch (error) {
       console.error('Error sending OTP:', error);
-      onShowPopup({
-        isOpen: true,
-        type: 'error',
-        title: 'Error',
-        message: 'Failed to send OTP. Please try again.'
-      });
+      const errorMessage = error.response?.data?.message || error.message || 'Failed to send OTP. Please try again.';
+      
+      // Check if it's a "signup first" error
+      if (errorMessage.includes('Signup First')) {
+        console.log('🎯 Showing Signup Required popup from catch block');
+        onShowPopup({
+          isOpen: true,
+          type: 'warning',
+          title: 'Signup Required',
+          message: 'Please sign up first to use our service. You will be redirected to the signup form.',
+          autoClose: true,
+          autoCloseDelay: 3000
+        });
+        // Switch to signup mode after popup shows
+        setTimeout(() => {
+          console.log('🔄 Redirecting to signup form from catch block');
+          onSwitchToSignUp();
+        }, 3000);
+      } else {
+        onShowPopup({
+          isOpen: true,
+          type: 'error',
+          title: 'Error',
+          message: errorMessage
+        });
+      }
     } finally {
       setIsLoading(false);
     }

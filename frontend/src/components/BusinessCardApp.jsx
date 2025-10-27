@@ -37,6 +37,7 @@ import {
   DialogTrigger,
 } from "./ui/dialog";
 import { apiService } from "../lib/api";
+import { downloadFile } from "../utils/mobileDownload";
 import UserUsage from "./UserUsage";
 import ChangePassword from "./ChangePassword";
 import { useAuth } from "../contexts/AuthContext";
@@ -593,12 +594,8 @@ const BusinessCardApp = () => {
   const exportVCF = async (contact) => {
     try {
       const blob = await apiService.exportVCF(contact);
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `${contact.fullName || "contact"}.vcf`;
-      a.click();
-      window.URL.revokeObjectURL(url);
+      const filename = `${contact.fullName || "contact"}.vcf`;
+      await downloadFile(blob, filename, 'text/vcard');
       toast.success("VCF file downloaded successfully");
     } catch (error) {
       const errorMessage = error.toastMessage || error.response?.data?.error || "Failed to export VCF file. Please try again.";
@@ -609,12 +606,7 @@ const BusinessCardApp = () => {
   const exportBulkVCF = async () => {
     try {
       const blob = await apiService.exportBulkVCF(processedContacts);
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = "contacts.vcf";
-      a.click();
-      window.URL.revokeObjectURL(url);
+      await downloadFile(blob, "contacts.vcf", 'text/vcard');
       toast.success("Bulk VCF file downloaded successfully");
     } catch (error) {
       const errorMessage = error.toastMessage || error.response?.data?.error || "Failed to export bulk VCF file. Please try again.";
@@ -625,12 +617,7 @@ const BusinessCardApp = () => {
   const exportCSV = async () => {
     try {
       const blob = await apiService.exportCSV(processedContacts, selectedFields);
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = "contacts.csv";
-      a.click();
-      window.URL.revokeObjectURL(url);
+      await downloadFile(blob, "contacts.csv", 'text/csv');
       toast.success("CSV file downloaded successfully");
     } catch (error) {
       const errorMessage = error.toastMessage || error.response?.data?.error || "Failed to export CSV file. Please try again.";
@@ -641,12 +628,7 @@ const BusinessCardApp = () => {
   const exportXLSX = async () => {
     try {
       const blob = await apiService.exportXLSX(processedContacts, selectedFields);
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = "contacts.xlsx";
-      a.click();
-      window.URL.revokeObjectURL(url);
+      await downloadFile(blob, "contacts.xlsx", 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
       toast.success("Excel file downloaded successfully");
     } catch (error) {
       const errorMessage = error.toastMessage || error.response?.data?.error || "Failed to export Excel file. Please try again.";

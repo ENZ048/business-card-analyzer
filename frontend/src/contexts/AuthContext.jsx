@@ -213,7 +213,8 @@ export const AuthProvider = ({ children }) => {
       const response = await apiService.sendOTP(phoneNumber, fullName);
       return { success: true, data: response };
     } catch (error) {
-      const errorMessage = error.response?.data?.error || 'Failed to send OTP';
+      // Check for both 'error' and 'message' fields in response
+      const errorMessage = error.response?.data?.message || error.response?.data?.error || 'Failed to send OTP';
       return { success: false, error: errorMessage };
     }
   };
