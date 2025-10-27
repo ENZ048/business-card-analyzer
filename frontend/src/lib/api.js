@@ -22,9 +22,19 @@ api.interceptors.request.use(
       config.headers.Authorization = `Bearer ${token}`;
     }
     
+    // Debug logging for mobile
+    console.log('🚀 API Request:', {
+      url: config.url,
+      method: config.method,
+      baseURL: config.baseURL,
+      data: config.data,
+      headers: config.headers
+    });
+    
     return config;
   },
   (error) => {
+    console.error('❌ Request Error:', error);
     return Promise.reject(error);
   }
 );

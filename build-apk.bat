@@ -7,9 +7,9 @@ echo.
 
 :: Define paths
 set "FRONTEND_DIR=D:\Scanner\frontend"
-set "ANDROID_DIR=%FRONTEND_DIR%\android"
+set "ANDROID_DIR=D:\Scanner\frontend\android"
 
-echo [1/3] Building frontend (Vite)...
+echo [1/4] Building frontend (Vite)...
 cd "%FRONTEND_DIR%"
 call npm run build
 if %errorlevel% neq 0 (
@@ -19,7 +19,7 @@ if %errorlevel% neq 0 (
 echo ✅ Frontend build complete.
 echo.
 
-echo [2/3] Syncing Capacitor with Android project...
+echo [2/4] Syncing Capacitor with Android project...
 call npx cap sync android
 if %errorlevel% neq 0 (
     echo ❌ Capacitor sync failed.
@@ -28,29 +28,26 @@ if %errorlevel% neq 0 (
 echo ✅ Capacitor sync complete.
 echo.
 
-echo [3/3] Opening Android Studio for APK build...
-echo.
-echo 📱 APK Build Instructions:
-echo =========================
-echo 1. Android Studio should open automatically
-echo 2. If not, manually open: %ANDROID_DIR%
-echo 3. Wait for Gradle sync to complete
-echo 4. Go to: Build → Build Bundle(s) / APK(s) → Build APK(s)
-echo 5. Wait for build to complete
-echo 6. APK will be created at:
-echo    %ANDROID_DIR%\app\build\outputs\apk\debug\app-debug.apk
-echo.
-echo 🎯 New Features Included:
-echo - WhatsApp OTP Authentication
-echo - Admin "New User Detail" Tab
-echo - Enhanced User Management
-echo - Mobile Responsive Design
+echo [3/4] Building Android APK (Debug)...
+cd "%ANDROID_DIR%"
+call gradlew assembleDebug
+if %errorlevel% neq 0 (
+    echo ❌ Android APK build failed.
+    echo.
+    echo 💡 Try opening Android Studio manually:
+    echo    1. Open Android Studio
+    echo    2. Open project: %ANDROID_DIR%
+    echo    3. Build → Build Bundle(s) / APK(s) → Build APK(s)
+    goto :eof
+)
+echo ✅ Android APK build complete.
 echo.
 
-:: Try to open Android Studio
-start "" "%ANDROID_DIR%"
-
+echo [4/4] APK Location:
+echo The debug APK can be found at:
+echo "%FRONTEND_DIR%\android\app\build\outputs\apk\debug\app-debug.apk"
+echo.
 echo =====================================
-echo    🎉 Ready for APK Build! 🎉
+echo    🎉 APK Build Process Finished! 🎉
 echo =====================================
 pause

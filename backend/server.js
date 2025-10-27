@@ -58,6 +58,7 @@ const exportRoutes = require("./routes/exportRoutes");
 const userRoutes = require("./routes/userRoutes");
 const planRoutes = require("./routes/planRoutes");
 const adminRoutes = require("./routes/adminRoutes");
+const appRoutes = require("./routes/appRoutes");
 
 const app = express();
 const server = http.createServer(app);
@@ -159,6 +160,7 @@ app.use("/api/export", exportRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/plans", planRoutes);
 app.use("/api/admin", adminRoutes);
+app.use("/api/app", appRoutes);
 
 // ---------- Serve frontend build (static) ----------
 // Default to the build_login folder you created earlier; allow overriding via env
