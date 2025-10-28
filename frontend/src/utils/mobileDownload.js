@@ -12,60 +12,62 @@ export const downloadFile = async (blob, filename, mimeType = 'application/octet
   try {
     const platform = Capacitor.getPlatform();
     
-    // For mobile platforms (iOS, Android), use native download + share
+    // For mobile platforms (iOS, Android), use Capacitor Filesystem
     if (platform === 'ios' || platform === 'android') {
-      console.log('📱 Mobile detected - Using native file handling');
+      console.log('📱 Mobile detected - Using Capacitor Filesystem');
       console.log('📝 File details:', { filename, mimeType, size: blob.size });
       
-      // Create a temporary URL for the blob
-      const url = URL.createObjectURL(blob);
+      // Dynamically import Capacitor plugins
+      const { Filesystem, Directory } = await import('@capacitor/filesystem');
+      const { Share } = await import('@capacitor/share');
       
-      try {
-        // Try to trigger download using anchor tag (works on some Android browsers)
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = filename;
-        a.style.display = 'none';
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        
-        console.log('✅ Download triggered successfully');
-        toast.success(`${filename} download started. Check your Downloads folder.`);
-        
-        // Clean up after a delay
-        setTimeout(() => {
-          URL.revokeObjectURL(url);
-        }, 1000);
-        
-        return { success: true };
-      } catch (error) {
-        console.error('❌ Direct download failed, trying Share API:', error);
-        
-        // Fallback: Try using Share API with the blob
-        try {
-          const { Share } = await import('@capacitor/share');
-          
-          // Convert blob to base64 for sharing
-          const base64 = await blobToBase64(blob);
-          const dataUrl = `data:${mimeType};base64,${base64}`;
-          
-          await Share.share({
-            title: filename,
-            text: `Download ${filename}`,
-            url: dataUrl,
-            dialogTitle: 'Save or Share File'
-          });
-          
-          console.log('✅ File shared successfully');
-          return { success: true };
-        } catch (shareError) {
-          console.error('❌ Share also failed:', shareError);
-          throw new Error('Failed to download or share file');
-        } finally {
-          URL.revokeObjectURL(url);
-        }
+      // Read blob as ArrayBuffer then convert to base64
+      const arrayBuffer = await blob.arrayBuffer();
+      const uint8Array = new Uint8Array(arrayBuffer);
+      
+      // Convert Uint8Array to base64 string
+      let binaryString = '';
+      for (let i = 0; i < uint8Array.length; i++) {
+        binaryString += String.fromCharCode(uint8Array[i]);
       }
+      const base64Data = btoa(binaryString);
+      
+      console.log('📦 Converted to base64, length:', base64Data.length);
+      
+      // Write file to device
+      const result = await Filesystem.writeFile({
+        path: filename,
+        data: base64Data,
+        directory: Directory.Documents
+        // NO encoding - this tells Capacitor the data is already base64
+      });
+      
+      console.log('✅ File written:', result.uri);
+      
+      // Get the file URI for sharing
+      const fileUri = await Filesystem.getUri({
+        path: filename,
+        directory: Directory.Documents
+      });
+      
+      console.log('📂 File URI:', fileUri.uri);
+      
+      // Share the file
+      try {
+        await Share.share({
+          title: 'Super Scanner Export',
+          text: filename,
+          url: fileUri.uri,
+          dialogTitle: 'Open or Share File'
+        });
+        console.log('✅ File shared successfully');
+        toast.success(`${filename} ready to open or save`);
+      } catch (shareError) {
+        console.log('ℹ️ Share dismissed');
+        toast.info(`File saved to Documents folder: ${filename}`);
+      }
+      
+      return { success: true, uri: fileUri.uri };
     } 
     // For web, use traditional download
     else {
