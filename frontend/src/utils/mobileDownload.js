@@ -15,24 +15,44 @@ export const downloadFile = async (blob, filename, mimeType = 'application/octet
     // For mobile platforms (iOS, Android), use Capacitor Filesystem + Share
     if (platform === 'ios' || platform === 'android') {
       console.log('📱 Mobile detected - Using Capacitor Filesystem');
+      console.log('📝 File details:', { filename, mimeType, size: blob.size });
       
       // Dynamically import Capacitor plugins only on mobile
-      const { Filesystem, Directory } = await import('@capacitor/filesystem');
+      const { Filesystem, Directory, Encoding } = await import('@capacitor/filesystem');
       const { Share } = await import('@capacitor/share');
       
-      // Convert blob to base64 (without the data URL prefix)
-      const base64 = await blobToBase64(blob);
+      let fileData;
+      let encoding;
       
-      console.log('📝 Writing file:', filename, 'Size:', blob.size, 'bytes');
+      // Determine if this is a text file (CSV, VCF) or binary file (Excel)
+      const isTextFile = mimeType.includes('text/') || mimeType.includes('vcard');
+      
+      if (isTextFile) {
+        // For text files (CSV, VCF), convert to text and write as UTF8
+        console.log('📄 Text file detected - Using UTF8 encoding');
+        fileData = await blob.text();
+        encoding = Encoding.UTF8;
+      } else {
+        // For binary files (Excel), use base64
+        console.log('📦 Binary file detected - Using base64 encoding');
+        fileData = await blobToBase64(blob);
+        // No encoding means Capacitor treats it as base64
+      }
       
       // Write file to device storage
-      // Capacitor expects pure base64 string and will decode it automatically
-      const result = await Filesystem.writeFile({
+      const writeOptions = {
         path: filename,
-        data: base64,
+        data: fileData,
         directory: Directory.Documents,
         recursive: true
-      });
+      };
+      
+      // Only add encoding for text files
+      if (encoding) {
+        writeOptions.encoding = encoding;
+      }
+      
+      const result = await Filesystem.writeFile(writeOptions);
       
       console.log('✅ File saved to:', result.uri);
       
