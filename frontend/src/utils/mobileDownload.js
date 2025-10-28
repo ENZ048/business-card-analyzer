@@ -12,66 +12,53 @@ export const downloadFile = async (blob, filename, mimeType = 'application/octet
   try {
     const platform = Capacitor.getPlatform();
     
-    // For mobile platforms (iOS, Android), use browser download fallback
+    // For mobile platforms (iOS, Android), save file and open with native app
     if (platform === 'ios' || platform === 'android') {
-      console.log('📱 Mobile detected - Using browser download with Share fallback');
+      console.log('📱 Mobile detected - Using Filesystem + FileOpener');
       console.log('📝 File details:', { filename, mimeType, size: blob.size });
       
-      // Try native browser download first (works in some WebViews)
       try {
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = filename;
-        a.style.display = 'none';
-        document.body.appendChild(a);
-        a.click();
+        // Dynamically import Capacitor plugins
+        const { Filesystem, Directory } = await import('@capacitor/filesystem');
+        const { FileOpener } = await import('@capacitor-community/file-opener');
         
-        // Wait a bit before cleanup
-        setTimeout(() => {
-          document.body.removeChild(a);
-          URL.revokeObjectURL(url);
-        }, 100);
+        // Convert blob to base64
+        const base64 = await blobToBase64(blob);
         
-        console.log('✅ Download triggered via anchor tag');
-        toast.success(`Downloading ${filename}...`);
+        console.log('📦 Base64 data length:', base64.length);
         
-        return { success: true };
-      } catch (anchorError) {
-        console.log('⚠️ Anchor download failed, trying Share API:', anchorError);
+        // Write file to Documents directory
+        const result = await Filesystem.writeFile({
+          path: filename,
+          data: base64,
+          directory: Directory.Documents
+        });
         
-        // Fallback to Share API
-        try {
-          const { Share } = await import('@capacitor/share');
-          
-          // Convert blob to base64 data URL
-          const reader = new FileReader();
-          const base64Promise = new Promise((resolve, reject) => {
-            reader.onload = () => resolve(reader.result);
-            reader.onerror = reject;
-            reader.readAsDataURL(blob);
-          });
-          
-          const dataUrl = await base64Promise;
-          
-          console.log('📤 Sharing file via Share API');
-          
-          await Share.share({
-            title: filename,
-            text: `Download ${filename}`,
-            url: dataUrl,
-            dialogTitle: 'Save File'
-          });
-          
-          console.log('✅ File shared successfully');
-          toast.success(`File ready to save`);
-          
-          return { success: true };
-        } catch (shareError) {
-          console.error('❌ Share API also failed:', shareError);
-          toast.error('Unable to download file. Please try from web browser.');
-          throw shareError;
-        }
+        console.log('✅ File written:', result.uri);
+        
+        // Get the full path for FileOpener
+        const fileUri = await Filesystem.getUri({
+          path: filename,
+          directory: Directory.Documents
+        });
+        
+        console.log('📂 Opening file with native app:', fileUri.uri);
+        
+        // Open the file with the appropriate native app
+        await FileOpener.open({
+          filePath: fileUri.uri,
+          contentType: mimeType,
+          openWithDefault: true
+        });
+        
+        console.log('✅ File opened successfully');
+        toast.success(`Opening ${filename}...`);
+        
+        return { success: true, uri: fileUri.uri };
+      } catch (error) {
+        console.error('❌ File download/open failed:', error);
+        toast.error(`Failed to open file: ${error.message || 'Unknown error'}`);
+        throw error;
       }
     } 
     // For web, use traditional download

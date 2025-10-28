@@ -15,6 +15,7 @@
     "android:dev": "npm run dev & npm run android:live"
   },
   "dependencies": {
+    "@capacitor-community/file-opener": "^7.0.1",
     "@capacitor/android": "^7.4.4",
     "@capacitor/cli": "^7.4.4",
     "@capacitor/core": "^7.4.4",

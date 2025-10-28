@@ -162,7 +162,7 @@ const AdminLayout = () => {
           
           <div className="flex items-center space-x-4">
             <div className="text-sm text-premium-gray">
-              Welcome back, <span className="font-semibold text-premium-black">{user?.firstName}</span>
+              Welcome to Troika Tech, <span className="font-semibold text-premium-black">{user?.firstName}</span>
             </div>
             <div className="h-7 w-7 bg-premium-orange rounded-full flex items-center justify-center shadow-sm">
               <span className="text-xs font-bold text-white">
