@@ -12,62 +12,78 @@ export const downloadFile = async (blob, filename, mimeType = 'application/octet
   try {
     const platform = Capacitor.getPlatform();
     
-    // For mobile platforms (iOS, Android), use Capacitor Filesystem
+    // For mobile platforms (iOS, Android), use Filesystem with proper binary handling
     if (platform === 'ios' || platform === 'android') {
-      console.log('📱 Mobile detected - Using Capacitor Filesystem');
+      console.log('📱 Mobile detected - Using Capacitor Filesystem with binary data');
       console.log('📝 File details:', { filename, mimeType, size: blob.size });
       
       // Dynamically import Capacitor plugins
       const { Filesystem, Directory } = await import('@capacitor/filesystem');
       const { Share } = await import('@capacitor/share');
       
-      // Read blob as ArrayBuffer then convert to base64
-      const arrayBuffer = await blob.arrayBuffer();
-      const uint8Array = new Uint8Array(arrayBuffer);
-      
-      // Convert Uint8Array to base64 string
-      let binaryString = '';
-      for (let i = 0; i < uint8Array.length; i++) {
-        binaryString += String.fromCharCode(uint8Array[i]);
-      }
-      const base64Data = btoa(binaryString);
-      
-      console.log('📦 Converted to base64, length:', base64Data.length);
-      
-      // Write file to device
-      const result = await Filesystem.writeFile({
-        path: filename,
-        data: base64Data,
-        directory: Directory.Documents
-        // NO encoding - this tells Capacitor the data is already base64
-      });
-      
-      console.log('✅ File written:', result.uri);
-      
-      // Get the file URI for sharing
-      const fileUri = await Filesystem.getUri({
-        path: filename,
-        directory: Directory.Documents
-      });
-      
-      console.log('📂 File URI:', fileUri.uri);
-      
-      // Share the file
       try {
+        // Convert blob to base64 using the proper method
+        const base64 = await blobToBase64(blob);
+        
+        console.log('📦 Base64 length:', base64.length);
+        
+        // For Capacitor to decode base64 to binary, we need to write with DATA URI
+        // Then immediately read it back and write as binary
+        const tempPath = `temp_${Date.now()}_${filename}`;
+        
+        // First write with data URI format (this forces Capacitor to decode)
+        await Filesystem.writeFile({
+          path: tempPath,
+          data: `data:${mimeType};base64,${base64}`,
+          directory: Directory.Cache
+        });
+        
+        // Read it back as binary
+        const readResult = await Filesystem.readFile({
+          path: tempPath,
+          directory: Directory.Cache
+        });
+        
+        // Write to Documents as actual file
+        await Filesystem.writeFile({
+          path: filename,
+          data: readResult.data,
+          directory: Directory.Documents
+        });
+        
+        // Delete temp file
+        await Filesystem.deleteFile({
+          path: tempPath,
+          directory: Directory.Cache
+        });
+        
+        console.log('✅ File written to Documents');
+        
+        // Get the file URI
+        const fileUri = await Filesystem.getUri({
+          path: filename,
+          directory: Directory.Documents
+        });
+        
+        console.log('📂 File URI:', fileUri.uri);
+        
+        // Share the file
         await Share.share({
           title: 'Super Scanner Export',
           text: filename,
           url: fileUri.uri,
           dialogTitle: 'Open or Share File'
         });
+        
         console.log('✅ File shared successfully');
-        toast.success(`${filename} ready to open or save`);
-      } catch (shareError) {
-        console.log('ℹ️ Share dismissed');
-        toast.info(`File saved to Documents folder: ${filename}`);
+        toast.success(`${filename} ready to open`);
+        
+        return { success: true, uri: fileUri.uri };
+      } catch (error) {
+        console.error('❌ Mobile download failed:', error);
+        toast.error('Failed to save file. Please try again.');
+        throw error;
       }
-      
-      return { success: true, uri: fileUri.uri };
     } 
     // For web, use traditional download
     else {
