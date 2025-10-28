@@ -7,10 +7,7 @@ export default defineConfig({
   base: '/', // Base path for WordPress integration
   build: {
     outDir: 'dist',
-    assetsDir: 'assets',
-    rollupOptions: {
-      external: ['@capacitor/filesystem', '@capacitor/share']
-    }
+    assetsDir: 'assets'
   },
   server: {
     host: true,
