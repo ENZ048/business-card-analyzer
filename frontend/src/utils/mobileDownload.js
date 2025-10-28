@@ -20,37 +20,46 @@ export const downloadFile = async (blob, filename, mimeType = 'application/octet
       const { Filesystem, Directory } = await import('@capacitor/filesystem');
       const { Share } = await import('@capacitor/share');
       
-      // Convert blob to base64
+      // Convert blob to base64 (without the data URL prefix)
       const base64 = await blobToBase64(blob);
       
+      console.log('📝 Writing file:', filename, 'Size:', blob.size, 'bytes');
+      
       // Write file to device storage
-      // Don't use encoding for binary files - let Capacitor handle it as base64
+      // Capacitor expects pure base64 string and will decode it automatically
       const result = await Filesystem.writeFile({
         path: filename,
         data: base64,
-        directory: Directory.Documents
-        // No encoding specified - Capacitor will treat data as base64
+        directory: Directory.Documents,
+        recursive: true
       });
       
       console.log('✅ File saved to:', result.uri);
+      
+      // Get the actual file URI for sharing
+      const fileUri = await Filesystem.getUri({
+        path: filename,
+        directory: Directory.Documents
+      });
+      
+      console.log('📂 File URI:', fileUri.uri);
       
       // Share the file using native sharing
       try {
         await Share.share({
           title: 'Super Scanner Export',
-          text: `Downloaded ${filename}`,
-          url: result.uri,
-          dialogTitle: 'Open or Share File',
-          files: [result.uri]
+          text: `Export from Super Scanner`,
+          url: fileUri.uri,
+          dialogTitle: 'Open or Share File'
         });
         console.log('✅ File shared successfully');
       } catch (shareError) {
-        console.log('ℹ️ Share dialog closed or not available. File saved to Documents:', result.uri);
+        console.log('ℹ️ Share dialog closed or not available. File saved to Documents:', fileUri.uri);
         // Show a more helpful message to the user
         toast.info(`File saved to Documents folder: ${filename}`);
       }
       
-      return { success: true, uri: result.uri };
+      return { success: true, uri: fileUri.uri };
     } 
     // For web, use traditional download
     else {
