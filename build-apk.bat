@@ -6,8 +6,8 @@ echo =====================================
 echo.
 
 :: Define paths
-set "FRONTEND_DIR=D:\Scanner\frontend"
-set "ANDROID_DIR=D:\Scanner\frontend\android"
+set "FRONTEND_DIR=D:\neww\business-card-analyzer\frontend"
+set "ANDROID_DIR=D:\neww\business-card-analyzer\frontend\android"
 
 echo [1/4] Building frontend (Vite)...
 cd "%FRONTEND_DIR%"
