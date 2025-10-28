@@ -1,5 +1,6 @@
 // utils/mobileDownload.js
 import { Capacitor } from '@capacitor/core';
+import { toast } from 'react-toastify';
 
 /**
  * Download or share a file based on the platform
@@ -16,18 +17,19 @@ export const downloadFile = async (blob, filename, mimeType = 'application/octet
       console.log('📱 Mobile detected - Using Capacitor Filesystem');
       
       // Dynamically import Capacitor plugins only on mobile
-      const { Filesystem, Directory, Encoding } = await import('@capacitor/filesystem');
+      const { Filesystem, Directory } = await import('@capacitor/filesystem');
       const { Share } = await import('@capacitor/share');
       
       // Convert blob to base64
       const base64 = await blobToBase64(blob);
       
       // Write file to device storage
+      // Don't use encoding for binary files - let Capacitor handle it as base64
       const result = await Filesystem.writeFile({
         path: filename,
         data: base64,
-        directory: Directory.Cache,
-        encoding: Encoding.UTF8
+        directory: Directory.Documents
+        // No encoding specified - Capacitor will treat data as base64
       });
       
       console.log('✅ File saved to:', result.uri);
@@ -38,10 +40,14 @@ export const downloadFile = async (blob, filename, mimeType = 'application/octet
           title: 'Super Scanner Export',
           text: `Downloaded ${filename}`,
           url: result.uri,
-          dialogTitle: 'Share or save file'
+          dialogTitle: 'Open or Share File',
+          files: [result.uri]
         });
+        console.log('✅ File shared successfully');
       } catch (shareError) {
-        console.log('ℹ️ Share API not available, file saved to Documents folder');
+        console.log('ℹ️ Share dialog closed or not available. File saved to Documents:', result.uri);
+        // Show a more helpful message to the user
+        toast.info(`File saved to Documents folder: ${filename}`);
       }
       
       return { success: true, uri: result.uri };
