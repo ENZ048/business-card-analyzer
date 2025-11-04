@@ -68,9 +68,16 @@ api.interceptors.response.use(
         if (errorMsg.includes('Session expired') || errorMsg.includes('Please login again')) {
           // Clear token to force logout
           localStorage.removeItem('token');
-          // Reload the page to trigger re-authentication
+          // Dispatch custom event for AuthContext to handle logout (better for Capacitor)
+          window.dispatchEvent(new CustomEvent('session-expired'));
+          // Also reload after a delay to ensure clean state (works in both web and Capacitor)
           setTimeout(() => {
-            window.location.href = '/';
+            // Use window.location.reload() for Capacitor compatibility, fallback to href for web
+            if (window.Capacitor || window.location.href.includes('capacitor://')) {
+              window.location.reload();
+            } else {
+              window.location.href = '/';
+            }
           }, 1000);
         }
       } else if (status === 403) {

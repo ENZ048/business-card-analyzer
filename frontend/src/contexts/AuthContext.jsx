@@ -141,6 +141,20 @@ export const AuthProvider = ({ children }) => {
     }
   }, [state.token]);
 
+  // Listen for session expiration events (from axios interceptor)
+  useEffect(() => {
+    const handleSessionExpired = () => {
+      console.log('🔄 Session expired event received, logging out...');
+      dispatch({ type: AUTH_ACTIONS.LOGOUT });
+    };
+
+    window.addEventListener('session-expired', handleSessionExpired);
+
+    return () => {
+      window.removeEventListener('session-expired', handleSessionExpired);
+    };
+  }, []);
+
   // Load user function
   const loadUser = async () => {
     dispatch({ type: AUTH_ACTIONS.LOAD_USER_START });
