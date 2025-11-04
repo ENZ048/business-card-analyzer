@@ -61,7 +61,18 @@ api.interceptors.response.use(
       } else if (status === 403 && data.code === 'USAGE_LIMIT_EXCEEDED') {
         error.toastMessage = data.error || 'Usage limit exceeded';
       } else if (status === 401) {
-        error.toastMessage = data.error || 'Authentication required';
+        const errorMsg = data.error || 'Authentication required';
+        error.toastMessage = errorMsg;
+        
+        // Check if it's a session expiration (user logged in from another device)
+        if (errorMsg.includes('Session expired') || errorMsg.includes('Please login again')) {
+          // Clear token to force logout
+          localStorage.removeItem('token');
+          // Reload the page to trigger re-authentication
+          setTimeout(() => {
+            window.location.href = '/';
+          }, 1000);
+        }
       } else if (status === 403) {
         error.toastMessage = data.error || 'Access denied';
       } else if (status === 404) {

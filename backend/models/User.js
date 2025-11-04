@@ -76,6 +76,11 @@ const userSchema = new mongoose.Schema({
     type: Date,
     default: Date.now
   },
+  sessionToken: {
+    type: String,
+    default: null,
+    select: false // Don't include in queries by default
+  },
   createdAt: {
     type: Date,
     default: Date.now

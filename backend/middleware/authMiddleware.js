@@ -31,8 +31,8 @@ const authMiddleware = async (req, res, next) => {
     // Verify token
     const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
     
-    // Get user from token
-    const user = await User.findById(decoded.userId).select('-password');
+    // Get user from token (include sessionToken for validation)
+    const user = await User.findById(decoded.userId).select('-password +sessionToken');
     
     if (!user) {
       return res.status(401).json({ 
@@ -44,6 +44,24 @@ const authMiddleware = async (req, res, next) => {
       return res.status(401).json({ 
         error: 'User account is deactivated' 
       });
+    }
+
+    // Check session token for single active session (only for regular users, not admins/superadmins)
+    const isRegularUser = !user.isAdmin() && user.role === 'user';
+    if (isRegularUser && user.sessionToken) {
+      // If JWT has a sessionToken, it must match the one in database
+      if (decoded.sessionToken) {
+        if (decoded.sessionToken !== user.sessionToken) {
+          return res.status(401).json({ 
+            error: 'Session expired. Please login again.' 
+          });
+        }
+      } else {
+        // JWT doesn't have sessionToken but user has one - token is from old session
+        return res.status(401).json({ 
+          error: 'Session expired. Please login again.' 
+        });
+      }
     }
 
     req.user = user;

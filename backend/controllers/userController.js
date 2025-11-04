@@ -26,7 +26,7 @@ const DEMO_USER_EMAIL = (process.env.DEMO_USER_EMAIL || 'bd@troikatech.net').toL
 const isDemoUser = (user) => !!(user && (user.isDemo || (user.email && user.email.toLowerCase() === DEMO_USER_EMAIL)));
 
 // Generate JWT token
-const generateToken = (userId, sessionScans = null) => {
+const generateToken = (userId, sessionScans = null, sessionToken = null) => {
   const payload = { userId };
 
   // For demo users, include session-based scan count in JWT
@@ -34,9 +34,19 @@ const generateToken = (userId, sessionScans = null) => {
     payload.sessionScans = sessionScans;
   }
 
+  // Include session token for single active session validation (regular users only)
+  if (sessionToken) {
+    payload.sessionToken = sessionToken;
+  }
+
   return jwt.sign(payload, process.env.JWT_SECRET || 'your-secret-key', {
     expiresIn: '7d'
   });
+};
+
+// Generate a unique session token
+const generateSessionToken = () => {
+  return require('crypto').randomBytes(32).toString('hex');
 };
 
 // User registration
@@ -174,6 +184,18 @@ const login = async (req, res) => {
 
     // Update last login
     user.lastLogin = new Date();
+
+    // Generate session token for single active session (only for regular users, not admins/superadmins)
+    let sessionToken = null;
+    const isRegularUser = !user.isAdmin() && !isDemoUser(user);
+    
+    if (isRegularUser) {
+      // Generate new session token to invalidate previous sessions
+      sessionToken = generateSessionToken();
+      user.sessionToken = sessionToken;
+      logger.info('🔄 Generated new session token for regular user:', sessionToken.substring(0, 16) + '...');
+    }
+
     await user.save();
 
     // Generate token - for demo users, reset session scans to 5
@@ -185,6 +207,7 @@ const login = async (req, res) => {
     logger.info('User._id:', user._id);
     logger.info('User.isDemo type:', typeof user.isDemo);
     logger.info('User.isDemo value:', user.isDemo);
+    logger.info('Is Regular User (non-admin):', isRegularUser);
 
     if (isDemoUser(user)) {
       // Create or reset demo session in database
@@ -194,8 +217,8 @@ const login = async (req, res) => {
       logger.info('✅ DEMO USER LOGIN - Created/reset session in DB with sessionScans:', sessionScans);
       logger.info('Token generated:', token.substring(0, 50) + '...');
     } else {
-      token = generateToken(user._id);
-      logger.info('✅ REGULAR USER LOGIN - Generated token without sessionScans');
+      token = generateToken(user._id, null, sessionToken);
+      logger.info('✅ REGULAR USER LOGIN - Generated token with sessionToken:', sessionToken ? sessionToken.substring(0, 16) + '...' : 'none (admin)');
     }
 
     logger.info('📦 Response user object:', {
@@ -820,6 +843,13 @@ const verifyOTP = async (req, res) => {
         isWhatsAppUser: true
       });
 
+      // Generate session token for single active session (only for regular users, not admins/superadmins)
+      const isRegularUser = !user.isAdmin() && !isDemoUser(user);
+      if (isRegularUser) {
+        user.sessionToken = generateSessionToken();
+        console.log('🔄 Generated new session token for new signup:', user.sessionToken.substring(0, 16) + '...');
+      }
+
       await user.save();
       console.log('✅ New user created:', {
         id: user._id,
@@ -831,11 +861,32 @@ const verifyOTP = async (req, res) => {
       // LOGIN FLOW: Update last login for existing user
       console.log('🔑 Updating existing user (Login flow)');
       user.lastLogin = new Date();
+      
+      // Generate session token for single active session (only for regular users, not admins/superadmins)
+      const isRegularUser = !user.isAdmin() && !isDemoUser(user);
+      if (isRegularUser) {
+        // Generate new session token to invalidate previous sessions
+        const sessionToken = generateSessionToken();
+        user.sessionToken = sessionToken;
+        console.log('🔄 Generated new session token for regular user:', sessionToken.substring(0, 16) + '...');
+      }
+      
       await user.save();
     }
 
+    // Get sessionToken for token generation (already set in signup/login flow above)
+    let sessionToken = null;
+    if (!user.isAdmin() && !isDemoUser(user)) {
+      // Get sessionToken from user document (already set above)
+      const userWithToken = await User.findById(user._id).select('+sessionToken');
+      sessionToken = userWithToken?.sessionToken || null;
+      if (sessionToken) {
+        console.log('✅ Using session token for JWT:', sessionToken.substring(0, 16) + '...');
+      }
+    }
+
     // Generate token
-    const token = generateToken(user._id);
+    const token = generateToken(user._id, null, sessionToken);
 
     res.json({
       success: true,
