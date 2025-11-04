@@ -106,7 +106,8 @@ const BusinessCardApp = () => {
     planLimit: 0,
     scansUsed: 0,
     isDemo: false,
-    demoCardScans: 0
+    demoCardScans: 0,
+    isUnlimited: false
   });
 
   // Memoized ObjectURLs to prevent recreation on every render
@@ -183,13 +184,17 @@ const BusinessCardApp = () => {
         // Check if user is demo - use session scans
         const isDemo = data.isDemo || user?.isDemo || false;
         const sessionScans = data.sessionScans || user?.sessionScans || 0;
+        
+        // Check if plan is unlimited (Enterprise plan has cardScansLimit = -1)
+        const isUnlimited = !isDemo && (data.planLimit === -1 || data.planType === 'Enterprise Plan');
 
         setUsageData({
-          scansRemaining: isDemo ? sessionScans : (data.planLimit - data.thisMonth),
+          scansRemaining: isDemo ? sessionScans : (isUnlimited ? -1 : (data.planLimit - data.thisMonth)),
           planLimit: data.planLimit,
           scansUsed: data.thisMonth,
           isDemo: isDemo,
-          sessionScans: sessionScans
+          sessionScans: sessionScans,
+          isUnlimited: isUnlimited
         });
       }
     } catch (error) {
@@ -230,8 +235,8 @@ const BusinessCardApp = () => {
   // File handling functions - heavily optimized for large batches
   const handleFileSelect = (files, isBulk = false) => {
     if (isBulk) {
-      // Check if user has enough scans remaining
-      if (files.length > usageData.scansRemaining) {
+      // Check if user has enough scans remaining (skip check for unlimited plans)
+      if (!usageData.isUnlimited && files.length > usageData.scansRemaining) {
         const upgradeMsg = usageData.isDemo
           ? 'upgrade to a paid plan for unlimited scans'
           : 'upgrade your plan';
@@ -263,8 +268,8 @@ const BusinessCardApp = () => {
           toast.error(`${invalidCount} invalid file(s) removed. Only image files are allowed.`);
         }
 
-        // Final check after filtering invalid files
-        if (validFiles.length > usageData.scansRemaining) {
+        // Final check after filtering invalid files (skip check for unlimited plans)
+        if (!usageData.isUnlimited && validFiles.length > usageData.scansRemaining) {
           toast.error(
             `After removing invalid files, you still have ${validFiles.length} images. ` +
             `You only have ${usageData.scansRemaining} scan(s) remaining.`
@@ -281,9 +286,9 @@ const BusinessCardApp = () => {
         }
       }, 0); // Execute in next event loop tick
     } else {
-      // Single mode - check if user has at least 1 scan remaining
+      // Single mode - check if user has at least 1 scan remaining (skip check for unlimited plans)
       const scanCount = files.length; // front + back (if provided)
-      if (scanCount > usageData.scansRemaining) {
+      if (!usageData.isUnlimited && scanCount > usageData.scansRemaining) {
         toast.error(
           `You only have ${usageData.scansRemaining} scan(s) remaining. ` +
           `Please ${usageData.isDemo ? 'upgrade to a paid plan' : 'upgrade your plan'}.`
@@ -418,11 +423,12 @@ const BusinessCardApp = () => {
       // Update usage data from response (for demo users, update session scans)
       if (result.usage) {
         if (result.usage.isDemo) {
-          // Update local state
+          // Update local state (preserve isUnlimited flag)
           setUsageData(prev => ({
             ...prev,
             scansRemaining: result.usage.sessionScans,
-            sessionScans: result.usage.sessionScans
+            sessionScans: result.usage.sessionScans,
+            isUnlimited: prev.isUnlimited // Preserve unlimited status
           }));
           
           // Update token in localStorage if a new token was provided
@@ -552,11 +558,12 @@ const BusinessCardApp = () => {
       // Update usage data from response (for demo users, update session scans)
       if (result.usage) {
         if (result.usage.isDemo) {
-          // Update local state
+          // Update local state (preserve isUnlimited flag)
           setUsageData(prev => ({
             ...prev,
             scansRemaining: result.usage.sessionScans,
-            sessionScans: result.usage.sessionScans
+            sessionScans: result.usage.sessionScans,
+            isUnlimited: prev.isUnlimited // Preserve unlimited status
           }));
           
           // Update token in localStorage if a new token was provided
@@ -822,7 +829,7 @@ const BusinessCardApp = () => {
                 <div className="flex items-center gap-2 px-4 py-2 bg-premium-orange-muted rounded-lg">
                   <CreditCard className="w-5 h-5 text-premium-orange" />
                   <span className="text-sm font-medium text-premium-black">
-                    {usageData.scansRemaining} scan{usageData.scansRemaining !== 1 ? 's' : ''} remaining
+                    {usageData.isUnlimited ? 'Unlimited Plan' : `${usageData.scansRemaining} scan${usageData.scansRemaining !== 1 ? 's' : ''} remaining`}
                     {usageData.isDemo && <span className="text-xs text-premium-gray ml-1">(demo)</span>}
                   </span>
                 </div>
@@ -1241,7 +1248,7 @@ const BusinessCardApp = () => {
                 <div className="flex items-center gap-2 px-4 py-2 bg-premium-orange-muted rounded-lg">
                   <CreditCard className="w-5 h-5 text-premium-orange" />
                   <span className="text-sm font-medium text-premium-black">
-                    {usageData.scansRemaining} scan{usageData.scansRemaining !== 1 ? 's' : ''} remaining
+                    {usageData.isUnlimited ? 'Unlimited Plan' : `${usageData.scansRemaining} scan${usageData.scansRemaining !== 1 ? 's' : ''} remaining`}
                     {usageData.isDemo && <span className="text-xs text-premium-gray ml-1">(demo)</span>}
                   </span>
                 </div>
