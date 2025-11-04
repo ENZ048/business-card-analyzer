@@ -1,7 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Users, Search, Phone, Mail, Calendar, Filter, RefreshCw } from 'lucide-react';
+import { Users, Search, Phone, Mail, Calendar, Filter, RefreshCw, UserPlus, X } from 'lucide-react';
+import { toast } from 'react-toastify';
 import { apiService } from '../../lib/api';
+import { Input } from '../ui/input';
+import { Button } from '../ui/button';
 
 const NewUserDetail = () => {
   const [users, setUsers] = useState([]);
@@ -11,6 +14,19 @@ const NewUserDetail = () => {
   const [filterActive, setFilterActive] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const [plans, setPlans] = useState([]);
+  const [showAddUserModal, setShowAddUserModal] = useState(false);
+  const [isCreating, setIsCreating] = useState(false);
+  const [formData, setFormData] = useState({
+    firstName: '',
+    lastName: '',
+    email: '',
+    password: '',
+    phoneNumber: '',
+    companyName: '',
+    role: 'user',
+    currentPlan: ''
+  });
   const [stats, setStats] = useState({
     totalUsers: 0,
     activeUsers: 0,
@@ -47,9 +63,19 @@ const NewUserDetail = () => {
     }
   };
 
+  const fetchPlans = async () => {
+    try {
+      const response = await apiService.getAdminPlans();
+      setPlans(response.plans || []);
+    } catch (err) {
+      console.error('Failed to fetch plans:', err);
+    }
+  };
+
   useEffect(() => {
     loadUsers();
     loadStats();
+    fetchPlans();
   }, [currentPage, searchTerm, filterRole, filterActive]);
 
   const handleSearch = (e) => {
@@ -64,6 +90,50 @@ const NewUserDetail = () => {
       setFilterActive(value);
     }
     setCurrentPage(1);
+  };
+
+  const handleAddUser = async (e) => {
+    e.preventDefault();
+    
+    // Validation
+    if (!formData.firstName || !formData.lastName || !formData.email || !formData.password || !formData.phoneNumber || !formData.companyName) {
+      toast.error('Please fill in all required fields');
+      return;
+    }
+
+    if (formData.password.length < 6) {
+      toast.error('Password must be at least 6 characters long');
+      return;
+    }
+
+    try {
+      setIsCreating(true);
+      await apiService.createAdminUser(formData);
+      toast.success('User created successfully! They can now login directly.');
+      
+      // Reset form
+      setFormData({
+        firstName: '',
+        lastName: '',
+        email: '',
+        password: '',
+        phoneNumber: '',
+        companyName: '',
+        role: 'user',
+        currentPlan: ''
+      });
+      
+      setShowAddUserModal(false);
+      
+      // Reload users and stats
+      loadUsers();
+      loadStats();
+    } catch (error) {
+      const errorMessage = error.response?.data?.error || error.message || 'Failed to create user';
+      toast.error(errorMessage);
+    } finally {
+      setIsCreating(false);
+    }
   };
 
   const formatDate = (dateString) => {
@@ -91,16 +161,25 @@ const NewUserDetail = () => {
             Manage and view all users who signed up via website signup form
           </p>
         </div>
-        <button
-          onClick={() => {
-            loadUsers();
-            loadStats();
-          }}
-          className="flex items-center px-4 py-2 bg-premium-black text-white rounded-lg hover:bg-premium-orange transition-colors"
-        >
-          <RefreshCw className="h-4 w-4 mr-2" />
-          Refresh
-        </button>
+        <div className="flex gap-3">
+          <button
+            onClick={() => setShowAddUserModal(true)}
+            className="flex items-center px-4 py-2 bg-premium-orange text-white rounded-lg hover:bg-premium-orange-dark transition-colors"
+          >
+            <UserPlus className="h-4 w-4 mr-2" />
+            Add User
+          </button>
+          <button
+            onClick={() => {
+              loadUsers();
+              loadStats();
+            }}
+            className="flex items-center px-4 py-2 bg-premium-black text-white rounded-lg hover:bg-premium-orange transition-colors"
+          >
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Refresh
+          </button>
+        </div>
       </div>
 
       {/* Stats Cards */}
@@ -371,6 +450,187 @@ const NewUserDetail = () => {
             </div>
           </div>
         )}
+      </div>
+
+      {/* Add User Modal */}
+      {showAddUserModal && (
+        <AddUserModal
+          formData={formData}
+          setFormData={setFormData}
+          plans={plans}
+          isCreating={isCreating}
+          onSubmit={handleAddUser}
+          onClose={() => {
+            setShowAddUserModal(false);
+            setFormData({
+              firstName: '',
+              lastName: '',
+              email: '',
+              password: '',
+              phoneNumber: '',
+              companyName: '',
+              role: 'user',
+              currentPlan: ''
+            });
+          }}
+        />
+      )}
+    </div>
+  );
+};
+
+// Add User Modal Component
+const AddUserModal = ({ formData, setFormData, plans, isCreating, onSubmit, onClose }) => {
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+        <div className="p-6">
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-2xl font-bold text-premium-black">Add New User</h2>
+            <button
+              onClick={onClose}
+              className="text-premium-gray hover:text-premium-black text-2xl leading-none"
+            >
+              <X className="h-6 w-6" />
+            </button>
+          </div>
+
+          <form onSubmit={onSubmit} className="space-y-6">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">
+                  First Name <span className="text-red-500">*</span>
+                </label>
+                <Input
+                  value={formData.firstName}
+                  onChange={(e) => setFormData(prev => ({ ...prev, firstName: e.target.value }))}
+                  required
+                  placeholder="Enter first name"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">
+                  Last Name <span className="text-red-500">*</span>
+                </label>
+                <Input
+                  value={formData.lastName}
+                  onChange={(e) => setFormData(prev => ({ ...prev, lastName: e.target.value }))}
+                  required
+                  placeholder="Enter last name"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-2">
+                Email <span className="text-red-500">*</span>
+              </label>
+              <Input
+                type="email"
+                value={formData.email}
+                onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
+                required
+                placeholder="user@example.com"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-2">
+                Password <span className="text-red-500">*</span>
+              </label>
+              <Input
+                type="password"
+                value={formData.password}
+                onChange={(e) => setFormData(prev => ({ ...prev, password: e.target.value }))}
+                required
+                placeholder="Minimum 6 characters"
+                minLength={6}
+              />
+              <p className="text-xs text-gray-500 mt-1">User can change password after first login</p>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-2">
+                Phone Number <span className="text-red-500">*</span>
+              </label>
+              <Input
+                type="tel"
+                value={formData.phoneNumber}
+                onChange={(e) => setFormData(prev => ({ ...prev, phoneNumber: e.target.value }))}
+                required
+                placeholder="10-digit phone number"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-2">
+                Company Name <span className="text-red-500">*</span>
+              </label>
+              <Input
+                type="text"
+                value={formData.companyName}
+                onChange={(e) => setFormData(prev => ({ ...prev, companyName: e.target.value }))}
+                required
+                placeholder="Enter company name"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">
+                  Role <span className="text-red-500">*</span>
+                </label>
+                <select
+                  value={formData.role}
+                  onChange={(e) => setFormData(prev => ({ ...prev, role: e.target.value }))}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-premium-orange focus:border-premium-orange"
+                  required
+                >
+                  <option value="user">User</option>
+                  <option value="admin">Admin</option>
+                  <option value="super_admin">Super Admin</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">
+                  Plan
+                </label>
+                <select
+                  value={formData.currentPlan}
+                  onChange={(e) => setFormData(prev => ({ ...prev, currentPlan: e.target.value }))}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-premium-orange focus:border-premium-orange"
+                >
+                  <option value="">Select Plan (Optional)</option>
+                  {plans.map(plan => (
+                    <option key={plan._id} value={plan._id}>
+                      {plan.displayName} ({plan.cardScansLimit === -1 ? 'Unlimited' : plan.cardScansLimit} scans)
+                    </option>
+                  ))}
+                </select>
+                <p className="text-xs text-gray-500 mt-1">If no plan selected, Starter Plan will be assigned</p>
+              </div>
+            </div>
+
+            <div className="flex justify-end space-x-3 pt-4 border-t">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={onClose}
+                disabled={isCreating}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                disabled={isCreating}
+                className="bg-premium-orange hover:bg-premium-orange-dark"
+              >
+                {isCreating ? 'Creating...' : 'Create User'}
+              </Button>
+            </div>
+          </form>
+        </div>
       </div>
     </div>
   );

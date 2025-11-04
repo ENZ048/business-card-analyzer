@@ -154,6 +154,137 @@ router.get('/users', async (req, res) => {
   }
 });
 
+// @route   POST /api/admin/users
+// @desc    Create a new user (admin only)
+// @access  Admin
+router.post('/users', async (req, res) => {
+  try {
+    const { firstName, lastName, email, password, phoneNumber, companyName, role, currentPlan } = req.body;
+
+    // Validation
+    if (!firstName || !lastName || !email || !password || !phoneNumber || !companyName) {
+      return res.status(400).json({
+        error: 'All required fields must be provided (firstName, lastName, email, password, phoneNumber, companyName)'
+      });
+    }
+
+    if (password.length < 6) {
+      return res.status(400).json({
+        error: 'Password must be at least 6 characters long'
+      });
+    }
+
+    // Check if user already exists
+    const existingUser = await User.findOne({ 
+      $or: [
+        { email: email.toLowerCase() },
+        { phoneNumber: phoneNumber.replace(/\D/g, '') }
+      ]
+    });
+
+    if (existingUser) {
+      return res.status(400).json({
+        error: 'User already exists with this email or phone number'
+      });
+    }
+
+    // Format phone number
+    let formattedPhone = phoneNumber.replace(/\D/g, '');
+    if (!formattedPhone.startsWith('91')) {
+      formattedPhone = '91' + formattedPhone;
+    }
+
+    // Get plan if provided
+    let planStartDate = new Date();
+    let planEndDate = null;
+    let selectedPlan = null;
+
+    if (currentPlan) {
+      selectedPlan = await Plan.findById(currentPlan);
+      if (!selectedPlan) {
+        return res.status(400).json({
+          error: 'Invalid plan selected'
+        });
+      }
+
+      // Set plan end date based on plan's validity
+      if (selectedPlan.validityMonths === 0) {
+        planEndDate = null; // No expiration (demo plan)
+      } else {
+        planEndDate = new Date();
+        planEndDate.setMonth(planEndDate.getMonth() + selectedPlan.validityMonths);
+      }
+    } else {
+      // Get or create starter plan as default
+      let starterPlan = await Plan.findOne({ name: 'starter' });
+      if (!starterPlan) {
+        const defaultPlans = Plan.getDefaultPlans();
+        await Plan.insertMany(defaultPlans);
+        starterPlan = await Plan.findOne({ name: 'starter' });
+      }
+      selectedPlan = starterPlan;
+      
+      // Default plan validity (30 days or plan validity)
+      if (selectedPlan.validityMonths === 0) {
+        planEndDate = null;
+      } else {
+        planEndDate = new Date();
+        planEndDate.setMonth(planEndDate.getMonth() + selectedPlan.validityMonths);
+      }
+    }
+
+    // Create new user
+    const user = new User({
+      firstName,
+      lastName,
+      email: email.toLowerCase(),
+      password,
+      phoneNumber: formattedPhone,
+      companyName,
+      role: role || 'user',
+      currentPlan: selectedPlan._id,
+      planStartDate,
+      planEndDate,
+      isActive: true
+    });
+
+    await user.save();
+
+    // Populate plan for response
+    await user.populate('currentPlan', 'displayName cardScansLimit');
+
+    res.status(201).json({
+      success: true,
+      message: 'User created successfully',
+      user: {
+        id: user._id,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        email: user.email,
+        phoneNumber: user.phoneNumber,
+        companyName: user.companyName,
+        role: user.role,
+        isActive: user.isActive,
+        currentPlan: user.currentPlan
+      }
+    });
+  } catch (error) {
+    console.error('Create user error:', error);
+    
+    // Handle duplicate key error
+    if (error.code === 11000) {
+      return res.status(400).json({
+        error: 'User already exists with this email or phone number'
+      });
+    }
+
+    res.status(500).json({
+      error: 'Server error while creating user',
+      details: error.message
+    });
+  }
+});
+
 // @route   GET /api/admin/users/:id
 // @desc    Get user details with usage history
 // @access  Admin

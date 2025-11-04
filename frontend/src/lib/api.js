@@ -201,6 +201,11 @@ export const apiService = {
     return response.data;
   },
 
+  createAdminUser: async (userData) => {
+    const response = await api.post('/api/admin/users', userData);
+    return response.data;
+  },
+
   updateAdminUser: async (userId, userData) => {
     const response = await api.put(`/api/admin/users/${userId}`, userData);
     return response.data;
