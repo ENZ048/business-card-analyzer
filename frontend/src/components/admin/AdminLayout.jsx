@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import {
   LayoutDashboard,
@@ -20,42 +20,11 @@ import PlanManagement from './PlanManagement';
 import UsageAnalytics from './UsageAnalytics';
 import DemoUserManagement from './DemoUserManagement';
 import NewUserDetail from './NewUserDetail';
-import UpdatePopup from '../ui/UpdatePopup';
-import { checkForUpdate } from '../../utils/versionCheck';
 
 const AdminLayout = () => {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { user, logout } = useAuth();
-  const [updateInfo, setUpdateInfo] = useState(null);
-  const [showUpdatePopup, setShowUpdatePopup] = useState(false);
-
-  // Check for app updates on mount and periodically
-  useEffect(() => {
-    const checkUpdate = async () => {
-      const update = await checkForUpdate();
-      if (update.hasUpdate) {
-        setUpdateInfo(update);
-        // Show popup immediately if update is required, otherwise wait a bit
-        if (update.updateRequired) {
-          setShowUpdatePopup(true);
-        } else {
-          // Show after 3 seconds for optional updates
-          setTimeout(() => {
-            setShowUpdatePopup(true);
-          }, 3000);
-        }
-      }
-    };
-
-    // Check immediately
-    checkUpdate();
-
-    // Check every 30 minutes
-    const interval = setInterval(checkUpdate, 30 * 60 * 1000);
-
-    return () => clearInterval(interval);
-  }, []);
 
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -215,20 +184,6 @@ const AdminLayout = () => {
           </motion.div>
         </main>
       </div>
-
-      {/* Update Popup */}
-      {showUpdatePopup && (
-        <UpdatePopup
-          updateInfo={updateInfo}
-          onClose={() => setShowUpdatePopup(false)}
-          onUpdate={() => {
-            if (updateInfo?.downloadUrl) {
-              window.open(updateInfo.downloadUrl, '_blank');
-            }
-            setShowUpdatePopup(false);
-          }}
-        />
-      )}
     </div>
   );
 };

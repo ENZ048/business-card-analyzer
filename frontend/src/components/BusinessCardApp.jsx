@@ -41,8 +41,6 @@ import { downloadFile } from "../utils/mobileDownload";
 import UserUsage from "./UserUsage";
 import ChangePassword from "./ChangePassword";
 import { useAuth } from "../contexts/AuthContext";
-import UpdatePopup from "./ui/UpdatePopup";
-import { checkForUpdate } from "../utils/versionCheck";
 
 // URL deduplication utility function
 const deduplicateUrls = (urls, allowEmpty = false) => {
@@ -112,10 +110,6 @@ const BusinessCardApp = () => {
     isUnlimited: false
   });
 
-  // Update popup state
-  const [updateInfo, setUpdateInfo] = useState(null);
-  const [showUpdatePopup, setShowUpdatePopup] = useState(false);
-
   // Memoized ObjectURLs to prevent recreation on every render
   const frontImageUrl = useMemo(() => {
     if (frontImage) {
@@ -180,33 +174,6 @@ const BusinessCardApp = () => {
   // Fetch usage data on mount and after processing
   useEffect(() => {
     fetchUsageData();
-  }, []);
-
-  // Check for app updates on mount and periodically
-  useEffect(() => {
-    const checkUpdate = async () => {
-      const update = await checkForUpdate();
-      if (update.hasUpdate) {
-        setUpdateInfo(update);
-        // Show popup immediately if update is required, otherwise wait a bit
-        if (update.updateRequired) {
-          setShowUpdatePopup(true);
-        } else {
-          // Show after 3 seconds for optional updates
-          setTimeout(() => {
-            setShowUpdatePopup(true);
-          }, 3000);
-        }
-      }
-    };
-
-    // Check immediately
-    checkUpdate();
-
-    // Check every 30 minutes
-    const interval = setInterval(checkUpdate, 30 * 60 * 1000);
-
-    return () => clearInterval(interval);
   }, []);
 
   const fetchUsageData = async () => {
@@ -1767,20 +1734,6 @@ const BusinessCardApp = () => {
           </div>
         </DialogContent>
       </Dialog>
-
-      {/* Update Popup */}
-      {showUpdatePopup && (
-        <UpdatePopup
-          updateInfo={updateInfo}
-          onClose={() => setShowUpdatePopup(false)}
-          onUpdate={() => {
-            if (updateInfo?.downloadUrl) {
-              window.open(updateInfo.downloadUrl, '_blank');
-            }
-            setShowUpdatePopup(false);
-          }}
-        />
-      )}
     </div>
   );
 };
