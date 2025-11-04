@@ -771,6 +771,15 @@ const verifyOTP = async (req, res) => {
       });
     }
 
+    // Check if user is active (only for existing users)
+    if (user && !user.isActive) {
+      console.log('❌ Login attempt with inactive account');
+      return res.status(401).json({
+        success: false,
+        message: 'Account is deactivated. Please contact administrator.'
+      });
+    }
+
     // Verify OTP using the OTP model
     const verificationResult = await OTP.verifyOTP(formattedPhone, otp);
     console.log('✅ OTP verification result:', verificationResult);

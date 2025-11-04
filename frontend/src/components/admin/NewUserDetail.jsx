@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Users, Search, Phone, Mail, Calendar, Filter, RefreshCw, UserPlus, X } from 'lucide-react';
+import { Users, Search, Phone, Mail, Calendar, Filter, RefreshCw, UserPlus, X, Edit } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { apiService } from '../../lib/api';
 import { Input } from '../ui/input';
@@ -16,8 +16,22 @@ const NewUserDetail = () => {
   const [totalPages, setTotalPages] = useState(1);
   const [plans, setPlans] = useState([]);
   const [showAddUserModal, setShowAddUserModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingUser, setEditingUser] = useState(null);
   const [isCreating, setIsCreating] = useState(false);
+  const [isUpdating, setIsUpdating] = useState(false);
+  const [togglingStatus, setTogglingStatus] = useState({});
   const [formData, setFormData] = useState({
+    firstName: '',
+    lastName: '',
+    email: '',
+    password: '',
+    phoneNumber: '',
+    companyName: '',
+    role: 'user',
+    currentPlan: ''
+  });
+  const [editFormData, setEditFormData] = useState({
     firstName: '',
     lastName: '',
     email: '',
@@ -149,6 +163,93 @@ const NewUserDetail = () => {
     // Remove country code and format
     const cleaned = phoneNumber.replace(/^91/, '');
     return `+91 ${cleaned.slice(0, 5)} ${cleaned.slice(5)}`;
+  };
+
+  const handleToggleStatus = async (userId, currentStatus) => {
+    try {
+      setTogglingStatus(prev => ({ ...prev, [userId]: true }));
+      await apiService.updateAdminUser(userId, { isActive: !currentStatus });
+      toast.success(`User ${!currentStatus ? 'activated' : 'deactivated'} successfully`);
+      loadUsers();
+      loadStats();
+    } catch (error) {
+      const errorMessage = error.response?.data?.error || error.message || 'Failed to update user status';
+      toast.error(errorMessage);
+    } finally {
+      setTogglingStatus(prev => ({ ...prev, [userId]: false }));
+    }
+  };
+
+  const handleEditUser = (user) => {
+    setEditingUser(user);
+    setEditFormData({
+      firstName: user.firstName || '',
+      lastName: user.lastName || '',
+      email: user.email || '',
+      password: '', // Don't pre-fill password
+      phoneNumber: user.phoneNumber ? user.phoneNumber.replace(/^91/, '') : '',
+      companyName: user.companyName || '',
+      role: user.role || 'user',
+      currentPlan: user.currentPlan?._id || ''
+    });
+    setShowEditModal(true);
+  };
+
+  const handleUpdateUser = async (e) => {
+    e.preventDefault();
+    
+    if (!editFormData.firstName || !editFormData.lastName || !editFormData.email || !editFormData.phoneNumber || !editFormData.companyName) {
+      toast.error('Please fill in all required fields');
+      return;
+    }
+
+    if (editFormData.password && editFormData.password.length > 0 && editFormData.password.length < 6) {
+      toast.error('Password must be at least 6 characters long');
+      return;
+    }
+
+    try {
+      setIsUpdating(true);
+      const updateData = {
+        firstName: editFormData.firstName,
+        lastName: editFormData.lastName,
+        email: editFormData.email,
+        phoneNumber: editFormData.phoneNumber,
+        companyName: editFormData.companyName,
+        role: editFormData.role,
+        currentPlan: editFormData.currentPlan || null
+      };
+      
+      // Only include password if provided
+      if (editFormData.password && editFormData.password.trim().length > 0) {
+        updateData.password = editFormData.password;
+      }
+
+      await apiService.updateAdminUser(editingUser._id, updateData);
+      toast.success('User updated successfully!');
+      
+      setShowEditModal(false);
+      setEditingUser(null);
+      setEditFormData({
+        firstName: '',
+        lastName: '',
+        email: '',
+        password: '',
+        phoneNumber: '',
+        companyName: '',
+        role: 'user',
+        currentPlan: ''
+      });
+      
+      // Reload users and stats
+      loadUsers();
+      loadStats();
+    } catch (error) {
+      const errorMessage = error.response?.data?.error || error.message || 'Failed to update user';
+      toast.error(errorMessage);
+    } finally {
+      setIsUpdating(false);
+    }
   };
 
   return (
@@ -319,12 +420,15 @@ const NewUserDetail = () => {
                 <th className="px-6 py-3 text-left text-xs font-medium text-premium-gray uppercase tracking-wider">
                   Joined
                 </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-premium-gray uppercase tracking-wider">
+                  Edit
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-premium-border">
               {loading ? (
                 <tr>
-                  <td colSpan="5" className="px-6 py-12 text-center">
+                  <td colSpan="6" className="px-6 py-12 text-center">
                     <div className="flex items-center justify-center">
                       <RefreshCw className="h-6 w-6 animate-spin text-premium-orange mr-2" />
                       <span className="text-premium-gray">Loading users...</span>
@@ -333,7 +437,7 @@ const NewUserDetail = () => {
                 </tr>
               ) : users.length === 0 ? (
                 <tr>
-                  <td colSpan="5" className="px-6 py-12 text-center">
+                  <td colSpan="6" className="px-6 py-12 text-center">
                     <div className="text-premium-gray">
                       <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />
                       <p className="text-lg font-medium">No users found</p>
@@ -404,18 +508,40 @@ const NewUserDetail = () => {
                       </div>
                     </td>
                     <td className="px-6 py-4">
-                      <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${
-                        user.isActive 
-                          ? 'bg-green-100 text-green-800'
-                          : 'bg-red-100 text-red-800'
-                      }`}>
-                        {user.isActive ? 'Active' : 'Inactive'}
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <label className="relative inline-flex items-center cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={user.isActive}
+                            onChange={() => handleToggleStatus(user._id, user.isActive)}
+                            disabled={togglingStatus[user._id]}
+                            className="sr-only peer"
+                          />
+                          <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-premium-orange-muted rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-500"></div>
+                        </label>
+                        <span className={`text-xs font-medium ${
+                          user.isActive 
+                            ? 'text-green-600'
+                            : 'text-red-600'
+                        }`}>
+                          {togglingStatus[user._id] ? 'Updating...' : (user.isActive ? 'Active' : 'Inactive')}
+                        </span>
+                      </div>
                     </td>
                     <td className="px-6 py-4">
                       <div className="text-sm text-premium-gray">
                         {formatDate(user.createdAt)}
                       </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <button
+                        onClick={() => handleEditUser(user)}
+                        className="flex items-center justify-center px-3 py-2 text-sm font-medium text-premium-orange bg-premium-orange-muted rounded-lg hover:bg-premium-orange hover:text-white transition-colors"
+                        title="Edit User"
+                      >
+                        <Edit className="h-4 w-4 mr-1" />
+                        Edit
+                      </button>
                     </td>
                   </motion.tr>
                 ))
@@ -463,6 +589,31 @@ const NewUserDetail = () => {
           onClose={() => {
             setShowAddUserModal(false);
             setFormData({
+              firstName: '',
+              lastName: '',
+              email: '',
+              password: '',
+              phoneNumber: '',
+              companyName: '',
+              role: 'user',
+              currentPlan: ''
+            });
+          }}
+        />
+      )}
+
+      {/* Edit User Modal */}
+      {showEditModal && editingUser && (
+        <EditUserModal
+          formData={editFormData}
+          setFormData={setEditFormData}
+          plans={plans}
+          isUpdating={isUpdating}
+          onSubmit={handleUpdateUser}
+          onClose={() => {
+            setShowEditModal(false);
+            setEditingUser(null);
+            setEditFormData({
               firstName: '',
               lastName: '',
               email: '',
@@ -627,6 +778,161 @@ const AddUserModal = ({ formData, setFormData, plans, isCreating, onSubmit, onCl
                 className="bg-premium-orange hover:bg-premium-orange-dark"
               >
                 {isCreating ? 'Creating...' : 'Create User'}
+              </Button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Edit User Modal Component
+const EditUserModal = ({ formData, setFormData, plans, isUpdating, onSubmit, onClose }) => {
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+        <div className="p-6">
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-2xl font-bold text-premium-black">Edit User</h2>
+            <button
+              onClick={onClose}
+              className="text-premium-gray hover:text-premium-black text-2xl leading-none"
+            >
+              <X className="h-6 w-6" />
+            </button>
+          </div>
+
+          <form onSubmit={onSubmit} className="space-y-6">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">
+                  First Name <span className="text-red-500">*</span>
+                </label>
+                <Input
+                  value={formData.firstName}
+                  onChange={(e) => setFormData(prev => ({ ...prev, firstName: e.target.value }))}
+                  required
+                  placeholder="Enter first name"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">
+                  Last Name <span className="text-red-500">*</span>
+                </label>
+                <Input
+                  value={formData.lastName}
+                  onChange={(e) => setFormData(prev => ({ ...prev, lastName: e.target.value }))}
+                  required
+                  placeholder="Enter last name"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-2">
+                Email <span className="text-red-500">*</span>
+              </label>
+              <Input
+                type="email"
+                value={formData.email}
+                onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
+                required
+                placeholder="user@example.com"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-2">
+                Password
+              </label>
+              <Input
+                type="password"
+                value={formData.password}
+                onChange={(e) => setFormData(prev => ({ ...prev, password: e.target.value }))}
+                placeholder="Leave blank to keep current password"
+                minLength={6}
+              />
+              <p className="text-xs text-gray-500 mt-1">Leave blank to keep the current password. Minimum 6 characters if changing.</p>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-2">
+                Phone Number <span className="text-red-500">*</span>
+              </label>
+              <Input
+                type="tel"
+                value={formData.phoneNumber}
+                onChange={(e) => setFormData(prev => ({ ...prev, phoneNumber: e.target.value }))}
+                required
+                placeholder="10-digit phone number"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-2">
+                Company Name <span className="text-red-500">*</span>
+              </label>
+              <Input
+                type="text"
+                value={formData.companyName}
+                onChange={(e) => setFormData(prev => ({ ...prev, companyName: e.target.value }))}
+                required
+                placeholder="Enter company name"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">
+                  Role <span className="text-red-500">*</span>
+                </label>
+                <select
+                  value={formData.role}
+                  onChange={(e) => setFormData(prev => ({ ...prev, role: e.target.value }))}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-premium-orange focus:border-premium-orange"
+                  required
+                >
+                  <option value="user">User</option>
+                  <option value="admin">Admin</option>
+                  <option value="super_admin">Super Admin</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">
+                  Plan
+                </label>
+                <select
+                  value={formData.currentPlan}
+                  onChange={(e) => setFormData(prev => ({ ...prev, currentPlan: e.target.value }))}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-premium-orange focus:border-premium-orange"
+                >
+                  <option value="">No Plan</option>
+                  {plans.map(plan => (
+                    <option key={plan._id} value={plan._id}>
+                      {plan.displayName} ({plan.cardScansLimit === -1 ? 'Unlimited' : plan.cardScansLimit} scans)
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div className="flex justify-end space-x-3 pt-4 border-t">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={onClose}
+                disabled={isUpdating}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                disabled={isUpdating}
+                className="bg-premium-orange hover:bg-premium-orange-dark"
+              >
+                {isUpdating ? 'Updating...' : 'Update User'}
               </Button>
             </div>
           </form>

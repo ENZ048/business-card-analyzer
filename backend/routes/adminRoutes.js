@@ -327,7 +327,7 @@ router.get('/users/:id', async (req, res) => {
 // @access  Admin
 router.put('/users/:id', async (req, res) => {
   try {
-    const { firstName, lastName, email, role, isActive, currentPlan } = req.body;
+    const { firstName, lastName, email, password, phoneNumber, companyName, role, isActive, currentPlan } = req.body;
     
     const user = await User.findById(req.params.id);
     if (!user) {
@@ -338,19 +338,38 @@ router.put('/users/:id', async (req, res) => {
 
     // Check if email is being changed and if it's already taken
     if (email && email !== user.email) {
-      const existingUser = await User.findOne({ email });
+      const existingUser = await User.findOne({ email: email.toLowerCase() });
       if (existingUser) {
         return res.status(400).json({
           error: 'Email already exists'
         });
       }
-      user.email = email;
+      user.email = email.toLowerCase();
     }
 
     if (firstName) user.firstName = firstName;
     if (lastName) user.lastName = lastName;
+    if (companyName) user.companyName = companyName;
+    if (phoneNumber) {
+      // Format phone number
+      let formattedPhone = phoneNumber.replace(/\D/g, '');
+      if (!formattedPhone.startsWith('91')) {
+        formattedPhone = '91' + formattedPhone;
+      }
+      user.phoneNumber = formattedPhone;
+    }
     if (role) user.role = role;
     if (isActive !== undefined) user.isActive = isActive;
+    
+    // Handle password update (only if provided and not empty)
+    if (password && password.trim().length > 0) {
+      if (password.length < 6) {
+        return res.status(400).json({
+          error: 'Password must be at least 6 characters long'
+        });
+      }
+      user.password = password; // Will be hashed by pre-save hook
+    }
 
     // Handle plan change
     if (currentPlan !== undefined) {
@@ -385,6 +404,9 @@ router.put('/users/:id', async (req, res) => {
 
     await user.save();
 
+    // Populate plan for response
+    await user.populate('currentPlan', 'displayName cardScansLimit');
+
     res.json({
       success: true,
       message: 'User updated successfully',
@@ -393,6 +415,8 @@ router.put('/users/:id', async (req, res) => {
         firstName: user.firstName,
         lastName: user.lastName,
         email: user.email,
+        phoneNumber: user.phoneNumber,
+        companyName: user.companyName,
         role: user.role,
         isActive: user.isActive,
         currentPlan: user.currentPlan
