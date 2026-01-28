@@ -16,7 +16,8 @@ import {
   MapPin,
   Phone,
   X,
-  FileText
+  FileText,
+  Download
 } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
@@ -34,6 +35,7 @@ const ScannedCards = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedCard, setSelectedCard] = useState(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
 
   useEffect(() => {
     fetchCards();
@@ -57,6 +59,28 @@ const ScannedCards = () => {
       toast.error(errorMessage);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleExport = async () => {
+    try {
+      setIsExporting(true);
+      const blob = await apiService.exportAdminScannedCards(filters.search, filters.userId);
+      
+      // Create download link
+      const url = window.URL.createObjectURL(new Blob([blob]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `scanned_cards_export_${new Date().toISOString().split('T')[0]}.xlsx`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      toast.success('Excel export started successfully');
+    } catch (err) {
+      console.error('Export failed:', err);
+      toast.error('Failed to export cards. Please try again.');
+    } finally {
+      setIsExporting(false);
     }
   };
 
@@ -88,6 +112,18 @@ const ScannedCards = () => {
           <h1 className="text-3xl font-bold text-premium-black">Scanned Cards</h1>
           <p className="text-premium-gray">View all business cards scanned by users</p>
         </div>
+        <Button
+          onClick={handleExport}
+          disabled={isExporting || cards.length === 0}
+          className="bg-black text-white hover:bg-gray-800 transition-all flex items-center gap-2"
+        >
+          {isExporting ? (
+            <div className="animate-spin rounded-full h-4 w-4 border-2 border-white/20 border-t-white"></div>
+          ) : (
+            <Download className="w-4 h-4" />
+          )}
+          {isExporting ? 'Exporting...' : 'Export to Excel'}
+        </Button>
       </div>
 
       {/* Filters */}

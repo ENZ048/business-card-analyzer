@@ -3,6 +3,7 @@ const User = require('../models/User');
 const Plan = require('../models/Plan');
 const Usage = require('../models/Usage');
 const Card = require('../models/Card');
+const { generateXLSX } = require('../services/exportService');
 const { adminMiddleware, superAdminMiddleware } = require('../middleware/adminMiddleware');
 
 const router = express.Router();
@@ -945,6 +946,78 @@ router.post('/demo-users/:id/reset-session', async (req, res) => {
     console.error('Reset demo user session error:', error);
     res.status(500).json({
       error: 'Server error while resetting session'
+    });
+  }
+});
+
+// @route   GET /api/admin/export-cards
+// @desc    Export scanned cards to Excel
+// @access  Admin
+router.get('/export-cards', async (req, res) => {
+  try {
+    const search = req.query.search || '';
+    const userId = req.query.userId || '';
+
+    let query = {};
+    if (userId) {
+      query.userId = userId;
+    }
+
+    if (search) {
+      query.$or = [
+        { fullName: { $regex: search, $options: 'i' } },
+        { company: { $regex: search, $options: 'i' } },
+        { emails: { $regex: search, $options: 'i' } },
+        { title: { $regex: search, $options: 'i' } },
+        { phoneNumbers: { $regex: search, $options: 'i' } }
+      ];
+    }
+
+    const cards = await Card.find(query)
+      .populate('userId', 'firstName lastName email')
+      .sort({ scannedAt: -1 })
+      .lean();
+
+    // Transform data for Excel
+    const contacts = cards.map(card => ({
+      fullName: card.fullName || '',
+      jobTitle: card.title || '',
+      company: card.company || '',
+      phones: card.phoneNumbers || [],
+      emails: card.emails || [],
+      websites: card.website ? [card.website] : [],
+      address: card.address || '',
+      userName: card.userId ? `${card.userId.firstName} ${card.userId.lastName}` : 'N/A',
+      userEmail: card.userId ? card.userId.email : 'N/A',
+      scannedAt: card.scannedAt ? new Date(card.scannedAt).toLocaleString() : 'N/A'
+    }));
+
+    const fields = [
+      'fullName', 
+      'jobTitle', 
+      'company', 
+      'phones', 
+      'emails', 
+      'websites', 
+      'address',
+      'userName',
+      'userEmail',
+      'scannedAt'
+    ];
+
+    const xlsxBuffer = generateXLSX(contacts, fields);
+
+    res.setHeader(
+      "Content-Disposition",
+      "attachment; filename=all_scanned_cards.xlsx"
+    );
+    res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+    res.send(xlsxBuffer);
+    
+  } catch (error) {
+    console.error('Export cards error:', error);
+    res.status(500).json({
+      error: 'Server error while exporting cards'
     });
   }
 });

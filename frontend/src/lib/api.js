@@ -281,6 +281,14 @@ export const apiService = {
     return response.data;
   },
 
+  exportAdminScannedCards: async (search = '', userId = '') => {
+    const params = new URLSearchParams({ search, userId }).toString();
+    const response = await api.get(`/api/admin/export-cards?${params}`, {
+      responseType: 'blob',
+    });
+    return response.data;
+  },
+
   resetDemoUserSession: async (userId) => {
     const response = await api.post(`/api/admin/demo-users/${userId}/reset-session`);
     return response.data;
