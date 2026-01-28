@@ -10,6 +10,7 @@ const User = require("../models/User");
 const Usage = require("../models/Usage");
 const DemoSession = require("../models/DemoSession");
 const ScanActivity = require("../models/ScanActivity");
+const Card = require("../models/Card");
 const llmLogger = require("../utils/llmLogger");
 
 const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
@@ -1182,6 +1183,31 @@ async function processBusinessCard(req, res) {
       });
       return validated;
     }).filter(card => card.isValid); // Only return valid cards
+
+    // SAVE CARDS TO DATABASE
+    if (validatedCards.length > 0) {
+      try {
+        const cardsToSave = validatedCards.map(card => ({
+          userId: userId,
+          fullName: card.fullName,
+          title: card.title,
+          company: card.company,
+          phoneNumbers: card.phoneNumbers || [],
+          emails: card.emails || [],
+          website: card.website,
+          address: card.address,
+          sourceMode: mode,
+          confidence: card.confidence || 0,
+          scannedAt: new Date()
+        }));
+        
+        await Card.insertMany(cardsToSave);
+        console.log(`Successfully saved ${cardsToSave.length} cards to database for user ${userId}`);
+      } catch (saveError) {
+        console.error("Error saving cards to database:", saveError);
+        // Don't fail the request if saving cards fails, but log it
+      }
+    }
 
     // Update usage after successful processing - count actual images processed
     let actualScanCount;

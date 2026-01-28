@@ -2,6 +2,7 @@ const express = require('express');
 const User = require('../models/User');
 const Plan = require('../models/Plan');
 const Usage = require('../models/Usage');
+const Card = require('../models/Card');
 const { adminMiddleware, superAdminMiddleware } = require('../middleware/adminMiddleware');
 
 const router = express.Router();
@@ -44,6 +45,9 @@ router.get('/dashboard', async (req, res) => {
       { $group: { _id: null, totalScans: { $sum: '$cardScansUsed' } } }
     ]);
 
+    // Get total cards saved in database
+    const totalCardsScanned = await Card.countDocuments();
+
     // Get usage trends (last 6 months)
     const usageTrends = await Usage.aggregate([
       {
@@ -84,6 +88,7 @@ router.get('/dashboard', async (req, res) => {
         whatsappUsers,
         newUsersThisMonth,
         totalScansThisMonth: totalScansThisMonth[0]?.totalScans || 0,
+        totalCardsScanned,
         planDistribution,
         usageTrends
       },
@@ -940,6 +945,60 @@ router.post('/demo-users/:id/reset-session', async (req, res) => {
     console.error('Reset demo user session error:', error);
     res.status(500).json({
       error: 'Server error while resetting session'
+    });
+  }
+});
+
+// @route   GET /api/admin/scanned-cards
+// @desc    Get all scanned cards with user details
+// @access  Admin
+router.get('/scanned-cards', async (req, res) => {
+  try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 20;
+    const skip = (page - 1) * limit;
+    const userId = req.query.userId;
+    const search = req.query.search;
+
+    const filter = {};
+    if (userId) filter.userId = userId;
+    if (search) {
+      filter.$or = [
+        { fullName: { $regex: search, $options: 'i' } },
+        { company: { $regex: search, $options: 'i' } },
+        { emails: { $regex: search, $options: 'i' } }
+      ];
+    }
+
+    const cards = await Card.find(filter)
+      .populate('userId', 'firstName lastName email')
+      .sort({ scannedAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .lean();
+
+    const total = await Card.countDocuments(filter);
+
+    res.json({
+      success: true,
+      cards: cards.map(card => ({
+        ...card,
+        userName: card.userId ? `${card.userId.firstName} ${card.userId.lastName}` : 'Unknown User',
+        userEmail: card.userId ? card.userId.email : 'Unknown'
+      })),
+      pagination: {
+        currentPage: page,
+        totalPages: Math.ceil(total / limit),
+        totalCards: total,
+        hasNext: page < Math.ceil(total / limit),
+        hasPrev: page > 1,
+        limit
+      }
+    });
+  } catch (error) {
+    console.error('Get scanned cards error:', error);
+    res.status(500).json({
+      error: 'Server error while fetching scanned cards'
     });
   }
 });
