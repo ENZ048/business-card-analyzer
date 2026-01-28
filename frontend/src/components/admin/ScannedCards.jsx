@@ -177,7 +177,12 @@ const ScannedCards = () => {
                     <td className="px-6 py-4">
                       <div className="flex flex-col">
                         <span className="text-slate-700 text-sm font-medium">{card.userName}</span>
-                        <span className="text-slate-500 text-xs">{card.userEmail}</span>
+                        <div className="flex flex-col text-xs text-slate-500">
+                          <span>{card.userEmail}</span>
+                          {card.userPhone && (
+                            <span className="text-premium-orange/80">{card.userPhone}</span>
+                          )}
+                        </div>
                       </div>
                     </td>
                     <td className="px-6 py-4 text-slate-500 text-sm">
@@ -340,6 +345,10 @@ const ScannedCards = () => {
                     <div className="w-2 h-2 rounded-full bg-green-500"></div>
                     {selectedCard.userName}
                   </p>
+                  <p className="text-xs text-slate-500 mt-1 ml-4">{selectedCard.userEmail}</p>
+                  {selectedCard.userPhone && (
+                    <p className="text-xs text-premium-orange font-medium mt-0.5 ml-4">{selectedCard.userPhone}</p>
+                  )}
                 </div>
                 <div>
                   <p className="text-[10px] text-slate-400 uppercase font-black mb-1">Scanned On</p>

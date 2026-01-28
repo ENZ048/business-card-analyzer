@@ -974,7 +974,7 @@ router.get('/export-cards', async (req, res) => {
     }
 
     const cards = await Card.find(query)
-      .populate('userId', 'firstName lastName email')
+      .populate('userId', 'firstName lastName email phoneNumber')
       .sort({ scannedAt: -1 })
       .lean();
 
@@ -989,6 +989,7 @@ router.get('/export-cards', async (req, res) => {
       address: card.address || '',
       userName: card.userId ? `${card.userId.firstName} ${card.userId.lastName}` : 'N/A',
       userEmail: card.userId ? card.userId.email : 'N/A',
+      userPhone: card.userId ? card.userId.phoneNumber : 'N/A',
       scannedAt: card.scannedAt ? new Date(card.scannedAt).toLocaleString() : 'N/A'
     }));
 
@@ -1002,6 +1003,7 @@ router.get('/export-cards', async (req, res) => {
       'address',
       'userName',
       'userEmail',
+      'userPhone',
       'scannedAt'
     ];
 
@@ -1044,7 +1046,7 @@ router.get('/scanned-cards', async (req, res) => {
     }
 
     const cards = await Card.find(filter)
-      .populate('userId', 'firstName lastName email')
+      .populate('userId', 'firstName lastName email phoneNumber')
       .sort({ scannedAt: -1 })
       .skip(skip)
       .limit(limit)
@@ -1057,7 +1059,8 @@ router.get('/scanned-cards', async (req, res) => {
       cards: cards.map(card => ({
         ...card,
         userName: card.userId ? `${card.userId.firstName} ${card.userId.lastName}` : 'Unknown User',
-        userEmail: card.userId ? card.userId.email : 'Unknown'
+        userEmail: card.userId ? card.userId.email : 'Unknown',
+        userPhone: card.userId ? card.userId.phoneNumber : 'Unknown'
       })),
       pagination: {
         currentPage: page,
