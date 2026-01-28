@@ -11,7 +11,8 @@ import {
   Settings,
   Shield,
   UserCheck,
-  UserPlus
+  UserPlus,
+  FileText
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import AdminDashboard from './AdminDashboard';
@@ -20,6 +21,7 @@ import PlanManagement from './PlanManagement';
 import UsageAnalytics from './UsageAnalytics';
 import DemoUserManagement from './DemoUserManagement';
 import NewUserDetail from './NewUserDetail';
+import ScannedCards from './ScannedCards';
 import UpdatePopup from '../ui/UpdatePopup';
 import { checkForUpdate } from '../../utils/versionCheck';
 
@@ -62,6 +64,7 @@ const AdminLayout = () => {
     { id: 'users', label: 'User Management', icon: Users },
     { id: 'new-users', label: 'New User Detail', icon: UserPlus },
     { id: 'demo-users', label: 'Demo Users', icon: UserCheck },
+    { id: 'scanned-cards', label: 'Scanned Cards', icon: FileText },
     { id: 'plans', label: 'Plan Management', icon: CreditCard },
     { id: 'analytics', label: 'Usage Analytics', icon: BarChart3 },
   ];
@@ -76,6 +79,8 @@ const AdminLayout = () => {
         return <NewUserDetail />;
       case 'demo-users':
         return <DemoUserManagement />;
+      case 'scanned-cards':
+        return <ScannedCards />;
       case 'plans':
         return <PlanManagement />;
       case 'analytics':

@@ -11,7 +11,8 @@ import {
   UserCheck,
   AlertCircle,
   RefreshCw,
-  Clock
+  Clock,
+  FileText
 } from 'lucide-react';
 import { apiService } from '../../lib/api';
 
@@ -124,7 +125,7 @@ const AdminDashboard = () => {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -210,6 +211,26 @@ const AdminDashboard = () => {
         >
           <div className="flex items-center justify-between">
             <div>
+              <p className="text-sm font-medium text-premium-gray">Total Scanned Cards</p>
+              <p className="text-3xl font-bold text-premium-black">{stats.totalCardsScanned || 0}</p>
+            </div>
+            <div className="h-12 w-12 bg-premium-orange rounded-lg flex items-center justify-center shadow-lg">
+              <FileText className="h-6 w-6 text-white" />
+            </div>
+          </div>
+          <div className="mt-4 flex items-center text-sm">
+            <span className="text-slate-500">Total records in database</span>
+          </div>
+        </motion.div>
+
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.4 }}
+          className="bg-white rounded-xl shadow-lg border border-premium-border p-5 hover:shadow-xl transition-shadow duration-300"
+        >
+          <div className="flex items-center justify-between">
+            <div>
               <p className="text-sm font-medium text-premium-gray">Plan Distribution</p>
               <p className="text-3xl font-bold text-premium-black">{stats.planDistribution.length}</p>
             </div>
@@ -218,12 +239,7 @@ const AdminDashboard = () => {
             </div>
           </div>
           <div className="mt-4 flex items-center text-sm">
-            <span className="text-slate-500">Active plans</span>
-            {isRefreshing && (
-              <div className="ml-2">
-                <div className="animate-spin rounded-full h-3 w-3 border-b border-orange-600"></div>
-              </div>
-            )}
+            <span className="text-slate-500">Active subscription plans</span>
           </div>
         </motion.div>
       </div>

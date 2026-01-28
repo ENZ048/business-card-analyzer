@@ -275,6 +275,12 @@ export const apiService = {
     return response.data;
   },
 
+  getAdminScannedCards: async (page = 1, limit = 20, search = '', userId = '') => {
+    const params = new URLSearchParams({ page, limit, search, userId });
+    const response = await api.get(`/api/admin/scanned-cards?${params}`);
+    return response.data;
+  },
+
   resetDemoUserSession: async (userId) => {
     const response = await api.post(`/api/admin/demo-users/${userId}/reset-session`);
     return response.data;
