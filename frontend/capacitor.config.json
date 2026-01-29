@@ -8,6 +8,10 @@
       "backgroundColor": "#ffffff",
       "showSpinner": true,
       "spinnerColor": "#000000"
+    },
+    "CapacitorUpdater": {
+      "autoUpdate": true,
+      "url": "https://login.superscanai.com/updates/capgo.json"
     }
   },
   "android": {
