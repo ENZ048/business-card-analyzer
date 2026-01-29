@@ -1,11 +1,15 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Phone, Mail } from 'lucide-react';
 import WhatsAppSignIn from './WhatsAppSignIn';
 import WhatsAppSignUp from './WhatsAppSignUp';
+import LoginForm from './LoginForm';
+import RegisterForm from './RegisterForm';
 import CustomPopup from '../ui/CustomPopup';
 
 const AuthPage = () => {
   const [mode, setMode] = useState('login');
+  const [authMethod, setAuthMethod] = useState('whatsapp'); // 'whatsapp' or 'email'
   const [popup, setPopup] = useState({ isOpen: false, type: 'error', title: '', message: '' });
 
   const handleSwitchToSignUp = () => {
@@ -52,6 +56,32 @@ const AuthPage = () => {
           </p>
         </motion.div>
 
+        {/* Auth Method Tabs */}
+        <div className="flex bg-white p-1 rounded-xl shadow-md mb-6 relative z-10">
+          <button
+            onClick={() => setAuthMethod('whatsapp')}
+            className={`flex-1 flex items-center justify-center py-2.5 rounded-lg text-sm sm:text-base font-medium transition-all duration-200 ${
+              authMethod === 'whatsapp'
+                ? 'bg-premium-black text-white shadow-md'
+                : 'text-gray-500 hover:text-gray-900 hover:bg-gray-50'
+            }`}
+          >
+            <Phone className="w-4 h-4 mr-2" />
+            WhatsApp
+          </button>
+          <button
+            onClick={() => setAuthMethod('email')}
+            className={`flex-1 flex items-center justify-center py-2.5 rounded-lg text-sm sm:text-base font-medium transition-all duration-200 ${
+              authMethod === 'email'
+                ? 'bg-premium-black text-white shadow-md'
+                : 'text-gray-500 hover:text-gray-900 hover:bg-gray-50'
+            }`}
+          >
+            <Mail className="w-4 h-4 mr-2" />
+            Email
+          </button>
+        </div>
+
         {/* Auth Form Container */}
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
@@ -59,30 +89,58 @@ const AuthPage = () => {
           className="relative"
         >
           <AnimatePresence mode="wait">
-            {mode === 'login' ? (
-              <motion.div
-                key="login"
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: 20 }}
-              >
-                <WhatsAppSignIn 
-                  onSwitchToSignUp={handleSwitchToSignUp}
-                  onShowPopup={handleShowPopup}
-                />
-              </motion.div>
+            {authMethod === 'whatsapp' ? (
+              // WhatsApp Auth Flow
+              mode === 'login' ? (
+                <motion.div
+                  key="whatsapp-login"
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: 20 }}
+                >
+                  <WhatsAppSignIn 
+                    onSwitchToSignUp={handleSwitchToSignUp}
+                    onShowPopup={handleShowPopup}
+                  />
+                </motion.div>
+              ) : (
+                <motion.div
+                  key="whatsapp-register"
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -20 }}
+                >
+                  <WhatsAppSignUp 
+                    onSwitchToSignIn={handleSwitchToSignIn}
+                    onShowPopup={handleShowPopup}
+                  />
+                </motion.div>
+              )
             ) : (
-              <motion.div
-                key="register"
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -20 }}
-              >
-                <WhatsAppSignUp 
-                  onSwitchToSignIn={handleSwitchToSignIn}
-                  onShowPopup={handleShowPopup}
-                />
-              </motion.div>
+              // Email Auth Flow
+              mode === 'login' ? (
+                <motion.div
+                  key="email-login"
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: 20 }}
+                >
+                  <LoginForm 
+                    onSwitchToRegister={handleSwitchToSignUp}
+                  />
+                </motion.div>
+              ) : (
+                <motion.div
+                  key="email-register"
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -20 }}
+                >
+                  <RegisterForm 
+                    onSwitchToLogin={handleSwitchToSignIn}
+                  />
+                </motion.div>
+              )
             )}
           </AnimatePresence>
         </motion.div>
