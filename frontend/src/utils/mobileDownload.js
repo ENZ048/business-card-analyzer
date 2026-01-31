@@ -22,16 +22,22 @@ export const downloadFile = async (blob, filename, mimeType = 'application/octet
         const { Filesystem, Directory } = await import('@capacitor/filesystem');
         const { FileOpener } = await import('@capacitor-community/file-opener');
         
+        // Ensure blob is valid
+        if (!blob || blob.size === 0) {
+          throw new Error('Invalid or empty file');
+        }
+        
         // Convert blob to base64
         const base64 = await blobToBase64(blob);
         
         console.log('📦 Base64 data length:', base64.length);
         
-        // Write file to Documents directory
+        // Write file to Documents directory with proper extension
         const result = await Filesystem.writeFile({
           path: filename,
           data: base64,
-          directory: Directory.Documents
+          directory: Directory.Documents,
+          recursive: true
         });
         
         console.log('✅ File written:', result.uri);
@@ -44,10 +50,14 @@ export const downloadFile = async (blob, filename, mimeType = 'application/octet
         
         console.log('📂 Opening file with native app:', fileUri.uri);
         
+        // Normalize MIME type for better compatibility
+        const normalizedMimeType = normalizeMimeType(mimeType, filename);
+        console.log('🔧 Using MIME type:', normalizedMimeType);
+        
         // Open the file with the appropriate native app
         await FileOpener.open({
           filePath: fileUri.uri,
-          contentType: mimeType,
+          contentType: normalizedMimeType,
           openWithDefault: true
         });
         
@@ -95,6 +105,27 @@ const blobToBase64 = (blob) => {
     reader.onerror = reject;
     reader.readAsDataURL(blob);
   });
+};
+
+/**
+ * Normalize MIME type for better mobile compatibility
+ */
+const normalizeMimeType = (mimeType, filename) => {
+  // Check file extension
+  const ext = filename.toLowerCase().split('.').pop();
+  
+  // Map common file types to proper MIME types
+  const mimeMap = {
+    'csv': 'text/csv',
+    'xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    'xls': 'application/vnd.ms-excel',
+    'vcf': 'text/vcard',
+    'pdf': 'application/pdf',
+    'txt': 'text/plain',
+    'json': 'application/json'
+  };
+  
+  return mimeMap[ext] || mimeType;
 };
 
 /**
