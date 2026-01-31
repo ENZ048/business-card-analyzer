@@ -3,6 +3,60 @@ import { Capacitor } from '@capacitor/core';
 import { toast } from 'react-toastify';
 
 /**
+ * Request storage permissions on Android
+ */
+const requestStoragePermissions = async () => {
+  try {
+    const platform = Capacitor.getPlatform();
+    
+    // Only request permissions on Android
+    if (platform !== 'android') {
+      return true;
+    }
+    
+    // Check Android version - permissions work differently on Android 13+
+    const { Device } = await import('@capacitor/device');
+    const info = await Device.getInfo();
+    const androidVersion = parseInt(info.osVersion);
+    
+    console.log('📱 Android version:', androidVersion);
+    
+    // Android 13+ (API 33+) uses different permission model
+    if (androidVersion >= 13) {
+      console.log('ℹ️ Android 13+ detected - Using scoped storage (no permissions needed)');
+      return true;
+    }
+    
+    // Android 6-12 requires runtime permissions
+    const { Filesystem } = await import('@capacitor/filesystem');
+    
+    try {
+      const permission = await Filesystem.checkPermissions();
+      console.log('📋 Current permissions:', permission);
+      
+      if (permission.publicStorage !== 'granted') {
+        console.log('🔐 Requesting storage permissions...');
+        const result = await Filesystem.requestPermissions();
+        console.log('📋 Permission result:', result);
+        
+        if (result.publicStorage !== 'granted') {
+          toast.error('Storage permission is required to download files');
+          return false;
+        }
+      }
+      
+      return true;
+    } catch (error) {
+      console.error('❌ Permission check/request failed:', error);
+      return true; // Continue anyway, might work on newer Android
+    }
+  } catch (error) {
+    console.error('❌ Permission handling error:', error);
+    return true; // Continue anyway
+  }
+};
+
+/**
  * Download or share a file based on the platform
  * @param {Blob} blob - The file blob
  * @param {string} filename - The name for the downloaded file
@@ -20,7 +74,7 @@ export const downloadFile = async (blob, filename, mimeType = 'application/octet
       try {
         // Dynamically import Capacitor plugins
         const { Filesystem, Directory } = await import('@capacitor/filesystem');
-        const { FileOpener } = await import('@capacitor-community/file-opener');
+        const { Share } = await import('@capacitor/share');
         
         // Ensure blob is valid
         if (!blob || blob.size === 0) {
@@ -32,43 +86,66 @@ export const downloadFile = async (blob, filename, mimeType = 'application/octet
         
         console.log('📦 Base64 data length:', base64.length);
         
-        // Write file to Documents directory with proper extension
+        // Write file to Cache directory (no permissions needed)
         const result = await Filesystem.writeFile({
           path: filename,
           data: base64,
-          directory: Directory.Documents,
-          recursive: true
+          directory: Directory.Cache
         });
         
-        console.log('✅ File written:', result.uri);
+        console.log('✅ File written to cache:', result.uri);
         
-        // Get the full path for FileOpener
+        // Get the full path
         const fileUri = await Filesystem.getUri({
           path: filename,
-          directory: Directory.Documents
+          directory: Directory.Cache
         });
         
-        console.log('📂 Opening file with native app:', fileUri.uri);
+        console.log('📂 File URI:', fileUri.uri);
         
         // Normalize MIME type for better compatibility
         const normalizedMimeType = normalizeMimeType(mimeType, filename);
         console.log('🔧 Using MIME type:', normalizedMimeType);
         
-        // Open the file with the appropriate native app
-        await FileOpener.open({
-          filePath: fileUri.uri,
-          contentType: normalizedMimeType,
-          openWithDefault: true
+        // Use Share API to let user save/open the file
+        await Share.share({
+          title: filename,
+          text: `Open or save ${filename}`,
+          url: fileUri.uri,
+          dialogTitle: 'Save or Open File'
         });
         
-        console.log('✅ File opened successfully');
-        toast.success(`Opening ${filename}...`);
+        console.log('✅ File shared successfully');
+        toast.success(`File ready: ${filename}`);
         
         return { success: true, uri: fileUri.uri };
       } catch (error) {
         console.error('❌ File download/open failed:', error);
-        toast.error(`Failed to open file: ${error.message || 'Unknown error'}`);
-        throw error;
+        
+        // Fallback: Try direct download to external storage
+        try {
+          console.log('🔄 Trying fallback method...');
+          const { Filesystem, Directory } = await import('@capacitor/filesystem');
+          
+          const base64 = await blobToBase64(blob);
+          
+          // Try writing to external storage Download folder
+          const downloadPath = `Download/${filename}`;
+          const result = await Filesystem.writeFile({
+            path: downloadPath,
+            data: base64,
+            directory: Directory.External
+          });
+          
+          console.log('✅ Fallback: File saved to Downloads:', result.uri);
+          toast.success(`File saved to Downloads: ${filename}`);
+          
+          return { success: true, uri: result.uri };
+        } catch (fallbackError) {
+          console.error('❌ Fallback also failed:', fallbackError);
+          toast.error(`Failed to save file: ${error.message || 'Unknown error'}`);
+          throw error;
+        }
       }
     } 
     // For web, use traditional download
